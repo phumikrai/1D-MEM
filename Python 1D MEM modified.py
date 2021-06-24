@@ -3749,12 +3749,6 @@ def yme_cor(las, well, core, data_range):
     syme_sand2 = 10 ** (0.02 + (0.7 * (np.log10(rhob_sand * dyme_sand))))       # Eissa and Kazi 2 (1988)
     syme_sand3 = (0.018 * (dyme_sand**2)) + (0.422 * dyme_sand)                 # Lacy (1997)
 
-    # customized equation for sand in MPa unit
-
-    # syme_sand4 = ((0.74 * dyme_sand) - 0.82) * 0.4                            # Eissa and Kazi 1 (1988) (customized)
-    # phi_sand = well.loc[well.LITHO == 'SAND', 'PHIE'].dropna()
-    # syme_sand4 = ((-2.21 * phi_sand) + 0.965) * dyme_sand                       # P'Toh
-
     # calculate static value for shale in GPa unit
 
     syme_shale1 = 0.0158 * (dyme_shale**2.74)                                   # Ohen (2003)
@@ -3789,12 +3783,6 @@ def yme_cor(las, well, core, data_range):
     syme_df = pd.DataFrame().reindex(well.index)
     syme_df['DYME'] = well.DYME
     syme_df['CYME'] = core.set_index('MD').YME
-
-    # min_range = core.MD.min()
-    # max_range = core.MD.max()
-    # diff = (max_range - min_range) * 0.1
-
-    # data_range = (min_range - diff, max_range + diff)
 
     for eq in [eq for eq in equations][:2]:
         syme_df[eq] = syme_sand1
@@ -4168,12 +4156,6 @@ def ucs_cal(las, well, core, data_range):
 
     ucs_df = pd.DataFrame().reindex(well.index)
     ucs_df['CUCS'] = core.set_index('MD').UCS
-
-    # min_range = core.MD.min()
-    # max_range = core.MD.max()
-    # diff = (max_range - min_range) * 0.1
-
-    # data_range = (min_range - diff, max_range + diff)
 
     for eq in [eq for eq in equations][:2]:
         ucs_df[eq] = ucs_sand1
@@ -5189,9 +5171,6 @@ def mud_window(las, well):
     well['CMW_KICK'] = well.WPG
 
     # Breakout or minimum mud weight caluculation
-
-    # N_FANG = (1 + np.sin(np.deg2rad(FANG))) / (1 - np.sin(np.deg2rad(FANG)))
-    # min_mw = ((3 * SHmax) - Shmin - (pp * (1 - N_FANG)) - UCS) / (1 + N_FANG)
 
     min_mw = (3 * SHmax) - Shmin - pp - UCS
 
