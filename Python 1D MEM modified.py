@@ -3,7 +3,6 @@
 1.Data Audit & 2.Framework Model
 
 """
-
 # Support modules
 
 import glob, os, re, random
@@ -289,7 +288,7 @@ sav_path = os.path.join(data_path, sav_folder)
 if not os.path.isdir(sav_path):
     os.makedirs(sav_path)
 
-# Fucnction for random bright color list (color map)
+# Function for random bright color list (color map)
 
 def default_colors(n_color):
     """
@@ -1330,12 +1329,8 @@ for las, tvd_las in zip(lases, tvd_lases):
     well = ratio_control(well)
     wells.append(well)
 
-"""
 
-Data synthetic
-
-"""
-
+# ## Data synthetic
 # Function for normalizing gamma ray log for data synthetic
 
 def norm_gr(las, well, ref_GR_high, ref_GR_low):
@@ -1709,7 +1704,11 @@ def best_r2(r2):
       
     return r2[max]
 
-# # Synthesize the data
+"""
+
+Synthesize the data
+
+"""
 
 methods, scores = [], []
 
@@ -2396,14 +2395,17 @@ for las, well in zip(lases, wells):
 
 # Function for calculating volume of clay
 
-def vcl_cal(las, well):
+def vcl_cal(well):
     """
     This function is for calculating the volume of clay (VCL) using two methods;
     - Neutron-Density based on N-D crossplot for shaly sand formation excluding gas bearing formation (low density with low neutron porosity ).
     - Linear Gamma Ray for gas bearing formation (overestimation of Vcl is possible for high uranium shale)
-    las = las files (.las) of the well data.
     well = well logging data in pandas data frame with alias applied.
     """
+    # output store
+
+    vcl_df = pd.DataFrame().reindex(well.index)
+
     # input parameters
 
     RHOB = well.RHOB_MRG.dropna()
@@ -2412,32 +2414,123 @@ def vcl_cal(las, well):
     # matrix and fluid parameters
 
     RHOBm, NPHIm = 2.65, 0
-    RHOBf, NPHIf = 1.9, 0.45
+    RHOBf, NPHIf = 1.0, 1.0
 
     # shale parameters
 
     RHOBsh = RHOB.quantile(0.55)
     NPHIsh = NPHI.quantile(0.55)
 
-    # volume of clay computation from Neutron-Density crossplot equation (Bhuyan and Passey, 1994)
+    # volume of clay  from Neutron-Density crossplot equation (Bhuyan and Passey, 1994)
 
     term1 = (RHOBm-RHOBf)*(NPHI-NPHIf) - (RHOB-RHOBf)*(NPHIm-NPHIf)
     term2 = (RHOBm-RHOBf)*(NPHIsh-NPHIf) - (RHOBsh-RHOBf)*(NPHIm-NPHIf)
-    well['VCL'] = term1/term2
+    vcl_df['VCLnd'] = term1/term2
 
     # volume of clay from GR
 
     GR = well.GR_NORM.dropna()
 
-    VCLgr = (GR - GR.quantile(0.45)) / (GR.quantile(0.55) - GR.quantile(0.45))
+    vcl_df['VCLgr'] = (GR - GR.quantile(0.10)) / (GR.quantile(0.80) - GR.quantile(0.10))
 
-    # replace volume of clay from GR in gas bearing formation (VCL < 0)
+    # iliminate volume of clay < 0 and volume of clay > 1
 
-    well.loc[well.VCL < 0, 'VCL'] = VCLgr
+    vcl_df.loc[vcl_df.VCLnd < 0, 'VCLnd'] = np.nan
 
     # limit exceeding volume of clay (VCL > 1) to maximum value (VCL = 1)
 
-    well.VCL.clip(0, 1, inplace = True)
+    vcl_df.VCLnd.clip(0, 1, inplace = True)
+
+    return vcl_df
+
+# Vcl correlation plot
+
+def vcl_plot(vcl_df, coef, intercept, vclcor_name):
+    """
+    This function is for plotting Vcl correlation plot
+    vcl_df = well logging data in pandas data frame with calculated Vcl.
+    coef = linear coefficient
+    intercept = linear intercept
+    """
+    # Create figure
+
+    fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (5,5))
+    fig.suptitle('Volume of clay correlation \n Slope = %f, Intercept = %f' %(coef, intercept), fontsize = 10, y = 0.97)
+
+    # inputs
+
+    VCLnd = vcl_df[['VCLnd', 'VCLgr']].dropna().VCLnd
+    VCLgr = vcl_df[['VCLnd', 'VCLgr']].dropna().VCLgr
+
+    # correlation plot
+
+    ax.scatter(VCLgr, VCLnd, alpha = 0.5, marker = '.')
+
+    start_line = (coef * vcl_df.VCLgr.min()) + intercept
+    stop_line = (coef * vcl_df.VCLgr.max()) + intercept
+
+    x_line = [vcl_df.VCLgr.min(), vcl_df.VCLgr.max()]
+    y_line = [start_line, stop_line]
+
+    line = mlines.Line2D(x_line, y_line, color = 'black')
+    ax.add_line(line)
+
+    ax.set_xlabel('VCL from gamma ray')
+    ax.set_ylabel('VCL from neutron porosity and density')
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.grid(True)
+
+    fig.tight_layout()
+
+    # Save files
+
+    ndplot_folder = 'Mechanical Stratigraphy'
+    ndplot_path = os.path.join(sav_path, ndplot_folder)
+
+    if not os.path.isdir(ndplot_path):
+        os.makedirs(ndplot_path)
+
+    plt.savefig(os.path.join(ndplot_path, vclcor_name), dpi = 200, format = 'png', bbox_inches = "tight")
+
+    plt.show()
+
+# Function for Vcl correlation
+
+def vcl_corr(las, well, vcl_df):
+    """
+    This function is for vcl correlation of VCLnd and VCLgr
+    las = las files (.las) of the well data.
+    well = well logging data in pandas data frame with alias applied.
+    vcl_df = well logging data in pandas data frame with calculated Vcl.
+    """
+    # prepare data
+
+    VCLnd = vcl_df[['VCLnd', 'VCLgr']].dropna().VCLnd.values.reshape(-1,1) # reshape for model prediction
+    VCLgr = vcl_df[['VCLnd', 'VCLgr']].dropna().VCLgr.values.reshape(-1,1) # reshape for model prediction
+
+    # curve fitting
+
+    lr = LinearRegression()
+    lr.fit(VCLgr, VCLnd)
+
+    coef = lr.coef_[0][0]
+    intercept = lr.intercept_[0]
+
+    vcl_df['coef'] = coef
+    vcl_df['intercept'] = intercept
+
+    VCLcor = (vcl_df.VCLgr * vcl_df.coef) + vcl_df.intercept
+
+    # plot correlation model
+
+    vclcor_name = '%s_VCLcor.png' %las.well['WELL'].value
+    vcl_plot(vcl_df, coef, intercept, vclcor_name)
+
+    # get Vcl
+
+    well['VCL'] = vcl_df.VCLnd
+    well['VCL'].fillna(VCLcor, inplace = True)
 
     # update LAS file
 
@@ -2500,7 +2593,7 @@ def phie_cal(las, well):
 
     # total porosity
 
-    POR = np.sqrt(((NPHIshcor**2) + (DPHIshcor**2)) / 2)
+    POR = (NPHIshcor + DPHIshcor)/2
 
     # effective porosity
 
@@ -2515,7 +2608,8 @@ def phie_cal(las, well):
 # calculate volume of clay, sand-shale lithology and effective porosity
 
 for las, well in zip(lases, wells):
-    las, well = vcl_cal(las, well)
+    vcl_df = vcl_cal(well)
+    las, well = vcl_corr(las, well, vcl_df)
     las, well = litho_cal(las, well)
     las, well = phie_cal(las, well)
     print('VCL, LITHO and PHIE are calculated for well %s' %las.well['WELL'].value)
@@ -2559,16 +2653,21 @@ def ndplot(las, well, tvd_top, data_range, ndplot_name):
     RHOBsh = RHOB.quantile(0.55)
     NPHIsh = NPHI.quantile(0.55)
 
-    x_line = [0.45, 0, NPHIsh]
-    y_line = [1.9, 2.65, RHOBsh]
-    minerals = ['Water', 'Quartz', 'Clay']
+    x_line = [0.5, 0, NPHIsh]
+    y_line = [1.8, 2.65, RHOBsh]
 
     line = mlines.Line2D(x_line, y_line, color = 'black')
     axis1.add_line(line)
 
-    for x, y, mineral in zip(x_line, y_line, minerals):
-        axis1.text(x + 0.02, y + 0.02, mineral, ha = 'center', va = 'center', color = 'black',
-                    path_effects = [pe.withStroke(linewidth = 3, foreground = "white")], fontsize = 10, weight = 'bold')
+    labels = ['Clean Sand Line', 'Shale Line']
+    sandxy = (0.25, 2.225)
+    shalexy = (NPHIsh/2, RHOBsh + ((2.65 - RHOBsh)/2))
+    sandang = (np.degrees(np.arctan2(0.85/2, 0.5)))
+    shaleang = (np.degrees(np.arctan2((2.65 - RHOBsh)/2, NPHIsh)))
+    
+    for label, xylabel, angle in zip(labels, [sandxy, shalexy], [sandang, shaleang]):
+        axis1.annotate(label, xy = xylabel, ha = 'center', va = 'center', rotation = angle, color = 'black',
+                        path_effects = [pe.withStroke(linewidth = 3, foreground = "white")], fontsize = 10, weight = 'bold')
 
     axis1.set_xlabel('NPHI[V/V]')
     axis1.set_ylabel('RHOB[g/c3]')
@@ -2736,16 +2835,21 @@ def multi_ndplot(lases, wells, well_names, multi_ndplot_name):
     RHOBsh = sum(RHOB_q55)/len(RHOB_q55)
     NPHIsh = sum(NPHI_q55)/len(NPHI_q55)
 
-    x_line = [0.45, 0, NPHIsh]
-    y_line = [1.9, 2.65, RHOBsh]
-    minerals = ['Water', 'Quartz', 'Clay']
+    x_line = [0.5, 0, NPHIsh]
+    y_line = [1.8, 2.65, RHOBsh]
 
     line = mlines.Line2D(x_line, y_line, color = 'black')
     ax.add_line(line)
 
-    for x, y, mineral in zip(x_line, y_line, minerals):
-        ax.text(x + 0.02, y + 0.02, mineral, ha = 'center', va = 'center', color = 'black', 
-                path_effects = [pe.withStroke(linewidth = 3, foreground = "white")], fontsize = 10, weight = 'bold')
+    labels = ['Clean Sand Line', 'Shale Line']
+    sandxy = (0.25, 2.225)
+    shalexy = (NPHIsh/2, RHOBsh + ((2.65 - RHOBsh)/2))
+    sandang = (np.degrees(np.arctan2(0.85/2, 0.5)))
+    shaleang = (np.degrees(np.arctan2((2.65 - RHOBsh)/2, NPHIsh)))
+    
+    for label, xylabel, angle in zip(labels, [sandxy, shalexy], [sandang, shaleang]):
+        ax.annotate(label, xy = xylabel, ha = 'center', va = 'center', rotation = angle, color = 'black',
+                    path_effects = [pe.withStroke(linewidth = 3, foreground = "white")], fontsize = 10, weight = 'bold')
 
     ax.set_xlabel('NPHI[V/V]')
     ax.set_ylabel('RHOB[g/c3]')
@@ -3608,7 +3712,7 @@ def yme_plot(las, syme_df, data_range, yme_name):
 
 # Function for convert dynamic young's modulus to static young's modulus
 
-def yme_cor(las, well, core):
+def yme_cor(las, well, core, data_range):
     """
     This function is for static young's modulus correlation from dynamic value using empirical equations (Najibi et al. 2015).
     Sedimentary equations:
@@ -3621,6 +3725,7 @@ def yme_cor(las, well, core):
     las = las files (.las) of the well data
     well = well logging data in pandas data frame with alias applied.
     core = core data in pandas data frame with calculated true vertical depth
+    data_range = data range
     """
     # prepare input parameters
 
@@ -3643,6 +3748,12 @@ def yme_cor(las, well, core):
     syme_sand1 = (0.74 * dyme_sand) - 0.82                                    # Eissa and Kazi 1 (1988)
     syme_sand2 = 10 ** (0.02 + (0.7 * (np.log10(rhob_sand * dyme_sand))))       # Eissa and Kazi 2 (1988)
     syme_sand3 = (0.018 * (dyme_sand**2)) + (0.422 * dyme_sand)                 # Lacy (1997)
+
+    # customized equation for sand in MPa unit
+
+    # syme_sand4 = ((0.74 * dyme_sand) - 0.82) * 0.4                            # Eissa and Kazi 1 (1988) (customized)
+    # phi_sand = well.loc[well.LITHO == 'SAND', 'PHIE'].dropna()
+    # syme_sand4 = ((-2.21 * phi_sand) + 0.965) * dyme_sand                       # P'Toh
 
     # calculate static value for shale in GPa unit
 
@@ -3679,11 +3790,11 @@ def yme_cor(las, well, core):
     syme_df['DYME'] = well.DYME
     syme_df['CYME'] = core.set_index('MD').YME
 
-    min_range = core.MD.min()
-    max_range = core.MD.max()
-    diff = (max_range - min_range) * 0.1
+    # min_range = core.MD.min()
+    # max_range = core.MD.max()
+    # diff = (max_range - min_range) * 0.1
 
-    data_range = (min_range - diff, max_range + diff)
+    # data_range = (min_range - diff, max_range + diff)
 
     for eq in [eq for eq in equations][:2]:
         syme_df[eq] = syme_sand1
@@ -3730,12 +3841,13 @@ def yme_cor(las, well, core):
 
 # Function for young's modulus computation
 
-def yme_cal(las, well, core):
+def yme_cal(las, well, core, data_range):
     """
     This function is for dynamic Young's modulus computation.
     las = las files (.las) of the well data
     well = well logging data in pandas data frame with alias applied.
     core = core data in pandas data frame with calculated true vertical depth
+    data_range = data range
     """
     # prepare input parameters
 
@@ -3759,7 +3871,7 @@ def yme_cal(las, well, core):
 
     # convert to static Young's modulus
 
-    well['YME'] = yme_cor(las, well, core)
+    well['YME'] = yme_cor(las, well, core, data_range)
 
     # update LAS file
 
@@ -3986,7 +4098,7 @@ def ucs_plot(las, ucs_df, data_range, ucs_name):
 
 # Function for Unconfined Compressive Strength (UCS) computation
 
-def ucs_cal(las, well, core):
+def ucs_cal(las, well, core, data_range):
     """
     This function is for Unconfined Compressive Strength (UCS) computation using empirical equations (Chang et al. 2006).
     Sedimentary equations:
@@ -3999,6 +4111,7 @@ def ucs_cal(las, well, core):
     las = las files (.las) of the well data
     well = well logging data in pandas data frame with alias applied.
     core = core data in pandas data frame with calculated true vertical depth
+    data_range = data range
     """
     # prepare input parameters
 
@@ -4056,11 +4169,11 @@ def ucs_cal(las, well, core):
     ucs_df = pd.DataFrame().reindex(well.index)
     ucs_df['CUCS'] = core.set_index('MD').UCS
 
-    min_range = core.MD.min()
-    max_range = core.MD.max()
-    diff = (max_range - min_range) * 0.1
+    # min_range = core.MD.min()
+    # max_range = core.MD.max()
+    # diff = (max_range - min_range) * 0.1
 
-    data_range = (min_range - diff, max_range + diff)
+    # data_range = (min_range - diff, max_range + diff)
 
     for eq in [eq for eq in equations][:2]:
         ucs_df[eq] = ucs_sand1
@@ -4147,11 +4260,16 @@ def tstr_cal(las, well):
     """
     # prepare input parameters
 
-    ucs = well.UCS
+    ucs_sand = well.loc[well.LITHO == 'SAND', 'UCS'].dropna()
+    ucs_shale = well.loc[well.LITHO == 'SHALE', 'UCS'].dropna()
 
     # calculate tensile strength
 
-    well['TSTR'] = ucs * 0.1
+    tstr_sand = ucs_sand * 0.1
+    tstr_shale = ucs_shale * 0.05
+
+    well['TSTR'] = tstr_sand
+    well['TSTR'].fillna(tstr_shale, inplace = True)
 
     print('Tensile formation strength is calculated')
 
@@ -4163,13 +4281,13 @@ def tstr_cal(las, well):
 
 # calculate young's modulas, poisson's ratio and unconfined compressive strength
 
-for las, well, core in zip(lases, wells, tvd_cores):
+for las, well, core, data_range in zip(lases, wells, tvd_cores, data_ranges):
     
     print('Well %s is being implemented.' %las.well['WELL'].value)
     
-    las, well = yme_cal(las, well, core)
+    las, well = yme_cal(las, well, core, data_range)
     las, well = pr_cal(las, well)
-    las, well = ucs_cal(las, well, core)
+    las, well = ucs_cal(las, well, core, data_range)
     las, well = fang_cal(las, well)
     las, well = tstr_cal(las, well)
 
@@ -4600,6 +4718,7 @@ for las, well, tvd_top, tvd_core, data_range in zip(lases, wells, tvd_tops, tvd_
     logs_name2 = '%s_Prop.png' %las.well['WELL'].value
     composite_logs2(las, well, tvd_top, tvd_core, data_range, all_forms, logs_name2)
 
+
 """
 
 8.Minimum Stress & 9.Maximum Stress
@@ -4614,7 +4733,7 @@ def stress_predict(well, epsilon_min, epsilon_max, depth):
     This function is for stress value prediction of mising eqaution inputs
     well = well logging data in pandas data frame with alias applied.
     epsilon_min = minimum tectonic strain
-    epsilon_max = maximum tectonic strain 
+    epsilon_max = maximum tectonic strain
     depth = depth point of core data
     """
     # prepare input parameters
@@ -4794,6 +4913,8 @@ def stresses_cal(las, well, drill):
     # calculate maximum and minimum tectonic strain
 
     epsilon_max, epsilon_min = tect_strain(well, drill)
+
+    epsilon_max, epsilon_min = 0.0002, 0.0001
 
     # calculate minimum and maximum horizontal stresses
 
@@ -5069,6 +5190,9 @@ def mud_window(las, well):
 
     # Breakout or minimum mud weight caluculation
 
+    # N_FANG = (1 + np.sin(np.deg2rad(FANG))) / (1 - np.sin(np.deg2rad(FANG)))
+    # min_mw = ((3 * SHmax) - Shmin - (pp * (1 - N_FANG)) - UCS) / (1 + N_FANG)
+
     min_mw = (3 * SHmax) - Shmin - pp - UCS
 
     well['CMW_MIN_MC'] = (min_mw/TVD) * (1/3.28084) * (1/0.052) # 3.28084 for m to ft, 1/0.052 for psi/ft to ppg
@@ -5176,7 +5300,7 @@ def mem_plot(las, well, tvd_top, tvd_pres, tvd_core, data_range, all_forms, mem_
 
     condition = (well.index >= start) & (well.index <= stop)
 
-    top_depth = well.loc[condition, 'TVDSS'].dropna().min()
+    top_depth = tvd_top.loc[tvd_top.FORMATIONS == 'MS', 'TVDSS_TOP'].values
     bottom_depth = well.loc[condition, 'TVDSS'].dropna().max()
     
     for ax in axis:
@@ -6400,17 +6524,11 @@ Application for fracturing
 
 # Function of calculate initiation, reopening, and closure pressures for fracturing
 
-def frac_cal(well, tvd_top, selected_forms):
+def frac_cal(well):
     """
     This function will calculate initiation, reopening, and closure pressures for fracturing
     wells = completed well data in pandas dataframe (Merged data with the synthetics)
-    tvd_top = formation top data in pandas data frame which contains:
-            1. Formation names in column name "Formations"
-            2. Top depth boundary of the formation in column name "Top_TVD"
-            3. Bottom depth boundary of the formation in column name "Bottom_TVD"
-    selected_forms = list of the name of the formation
     """
-    result_data = {}
 
     # convert unit 3.28084 for m to ft, 1/0.052 for psi/ft to ppg
 
@@ -6419,46 +6537,139 @@ def frac_cal(well, tvd_top, selected_forms):
     cal_data['ppg_SHmax'] = (cal_data.SHmax/cal_data.TVD) * (1/3.28084) * (1/0.052)
     cal_data['ppg_TSTR'] = (cal_data.TSTR/cal_data.TVD) * (1/3.28084) * (1/0.052)
 
-    for form in selected_forms:
+    # fracture initiation pressure in ppg
 
-        # Set data interval from formation
+    cal_data['Pi'] = (3 * cal_data.ppg_Shmin) - cal_data.ppg_SHmax - cal_data.WPG + cal_data.ppg_TSTR
 
-        top_depth = float(tvd_top.loc[tvd_top.FORMATIONS == form, 'TOP'])
-        bottom_depth = float(tvd_top.loc[tvd_top.FORMATIONS == form, 'BOTTOM'])
+    # fracture reopening pressure in ppg
 
-        condition = (cal_data.index >= top_depth) & (cal_data.index <= bottom_depth)
-        form_data = cal_data.loc[condition].mean()
+    cal_data['Pfr'] = (3 * cal_data.ppg_Shmin) - cal_data.ppg_SHmax - cal_data.WPG
 
-        # fracture initiation pressure in ppg
+    # fracture closure pressure in ppg
 
-        Pi = (3 * form_data.ppg_Shmin) - form_data.ppg_SHmax - form_data.WPG + form_data.ppg_TSTR
+    cal_data['Pc'] = cal_data.ppg_Shmin
 
-        # fracture reopening pressure in ppg
+    print('Fracture initiation, reopening, and closure pressures are estimated.')
 
-        Pfr = (3 * form_data.ppg_Shmin) - form_data.ppg_SHmax - form_data.WPG
-
-        # fracture closure pressure in ppg
-
-        Pc = form_data.ppg_Shmin
-
-        result_data[form] = [Pi, Pfr, Pc]
-
-        print('For formation %s' %form)
-        print('Estimated fracture initiation pressure is %f ppg' %Pi)
-        print('Estimated fracture reopening pressure is %f ppg' %Pfr)
-        print('Estimated fracture closure pressure is %f ppg' %Pc)
-
-    result = pd.DataFrame(result_data, index = ['Pi', 'Pfr', 'Pc'])
-
-    return result
+    return cal_data
 
 # Calculate initiation, reopening, and closure
 
-results = []
+cal_datas = []
 
 for las, well, tvd_top in zip(lases, wells, tvd_tops):
         print('For well %s' %las.well['WELL'].value)
-        result = frac_cal(well, tvd_top, selected_forms)
-        results.append(result)
+        cal_data = frac_cal(well)
+        cal_datas.append(cal_data)
 
+# Function for hydraulic fracturing pressures plot for specific formation
 
+def frac_mud_plot(las, cal_data, tvd_top, all_forms, formation, frac_name):
+    """
+    This function is plotting hydraulic fracturing pressures plot for specific formation.
+    las = las file (.las) of the cal_data data.
+    cal_data = cal_data logging data in pandas data frame with alias applied.
+    tvd_top = formation top data in pandas data frame.
+    all_forms = list of all formation names with color code in dictionary format
+    formation = input the name of the formation where the data can be compared
+    mem_name = name of saved figure.
+    """
+    # Create figure
+
+    fig, axis = plt.subplots(nrows = 1, ncols = 1, figsize = (8, 12), sharey = True)
+    fig.suptitle('Hydraulic Fracturing Pressures \nFor %s of well %s' %(formation, las.well['WELL'].value), fontsize = 20, y = 1.0)
+
+    # Set interval from each well for selected formation
+
+    start = float(tvd_top.loc[tvd_top.FORMATIONS == formation, 'TOP'])
+    stop = float(tvd_top.loc[tvd_top.FORMATIONS == formation, 'BOTTOM'])
+
+    condition = (cal_data.index >= start) & (cal_data.index <= stop)
+
+    top_depth = cal_data.loc[condition, 'TVDSS'].dropna().min()
+    bottom_depth = cal_data.loc[condition, 'TVDSS'].dropna().max()
+
+    # General setting
+
+    axis.set_ylim(top_depth, bottom_depth)
+    axis.set_ylabel('TVDSS[m]')
+    axis.invert_yaxis()
+    axis.minorticks_on() #Scale axis
+    axis.get_xaxis().set_visible(False)
+    axis.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
+    axis.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'red')
+
+    # formation plot
+
+    axis.axhline(y = top_depth, linewidth = 1.5, color = all_forms[formation], alpha = 0.3)
+    axis.axhspan(top_depth, bottom_depth, facecolor = all_forms[formation], alpha = 0.1)
+
+    middle_depth = top_depth + (bottom_depth - top_depth)/2
+                
+    axis.text(0.01, middle_depth , formation, ha = 'left', va = 'center', color = all_forms[formation], 
+                path_effects = [pe.withStroke(linewidth = 3, foreground = "white")], fontsize = 10, weight = 'bold')
+
+    # initiation
+
+    plot1 = cal_data[['Pi', 'TVDSS']].dropna()
+
+    ax11 = axis.twiny()
+    ax11.plot(plot1.Pi, plot1.TVDSS, color = 'red', linewidth = '1')
+    ax11.spines['top'].set_position(('axes', 1.02))
+    ax11.spines['top'].set_edgecolor('red')
+    ax11.set_xlim(10, 28)
+    ax11.set_xlabel('Initiation[ppg]', color = 'red')    
+    ax11.tick_params(axis = 'x', colors = 'red')
+    ax11.set_xticks(np.arange(10, 29, 3))
+    ax11.set_xticklabels(['10', '', '', '', '', '', '28'])
+
+    ax11.grid(True)
+
+    # reopening
+
+    plot2 = cal_data[['Pfr', 'TVDSS']].dropna()
+    
+    ax12 = axis.twiny()
+    ax12.plot(plot2.Pfr, plot2.TVDSS, color = 'blue', linewidth = '1')
+    ax12.spines['top'].set_position(('axes', 1.08))
+    ax12.spines['top'].set_edgecolor('blue')
+    ax12.set_xlim(10, 28)
+    ax12.set_xlabel('Reopening[ppg]', color = 'blue')    
+    ax12.tick_params(axis = 'x', colors = 'blue')
+    ax12.set_xticks(np.arange(10, 29, 3))
+    ax12.set_xticklabels(['10', '', '', '', '', '', '28'])
+
+    # closure
+
+    plot3 = cal_data[['Pc', 'TVDSS']].dropna()
+
+    ax13 = axis.twiny()
+    ax13.plot(plot3.Pc, plot3.TVDSS, color = 'black', linewidth = '1')
+    ax13.spines['top'].set_position(('axes', 1.14))
+    ax13.spines['top'].set_edgecolor('black')
+    ax13.set_xlim(10, 28)
+    ax13.set_xlabel('Closure[ppg]', color = 'black')    
+    ax13.tick_params(axis = 'x', colors = 'black')
+    ax13.set_xticks(np.arange(10, 29, 3))
+    ax13.set_xticklabels(['10', '', '', '', '', '', '28'])
+
+    fig.tight_layout()
+
+    # Save files
+
+    mem_folder = 'MEM'
+    mem_path = os.path.join(sav_path, mem_folder)
+
+    if not os.path.isdir(mem_path):
+        os.makedirs(mem_path)
+
+    plt.savefig(os.path.join(mem_path, frac_name), dpi = 200, format = 'png', bbox_inches = "tight")
+
+    plt.show()
+
+# construct fracturing mud weight profiles for specific formation
+
+for las, cal_data, tvd_top in zip(lases, cal_datas, tvd_tops):
+    for form in selected_forms:
+        frac_name = '%s_frac_%s.png' %(las.well['WELL'].value, form)
+        frac_mud_plot(las, cal_data, tvd_top, all_forms, form, frac_name)
