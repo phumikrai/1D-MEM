@@ -4896,8 +4896,6 @@ def stresses_cal(las, well, drill):
 
     epsilon_max, epsilon_min = tect_strain(well, drill)
 
-    epsilon_max, epsilon_min = 0.0002, 0.0001
-
     # calculate minimum and maximum horizontal stresses
 
     well['Shmin'] = hstress_eq(OBP, PP, YME, PR, alpha, epsilon_min, epsilon_max)
