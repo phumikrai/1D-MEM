@@ -5277,7 +5277,7 @@ def mem_plot(las, well, tvd_top, tvd_pres, tvd_core, data_range, all_forms, mem_
 
     condition = (well.index >= start) & (well.index <= stop)
 
-    top_depth = tvd_top.loc[tvd_top.FORMATIONS == 'MS', 'TVDSS_TOP'].values
+    top_depth = well.loc[condition, 'TVDSS'].dropna().min()
     bottom_depth = well.loc[condition, 'TVDSS'].dropna().max()
     
     for ax in axis:
