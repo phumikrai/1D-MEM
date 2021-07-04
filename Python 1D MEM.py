@@ -2901,14 +2901,10 @@ def den_extra(las, well, tvd_top, RHOml, surface):
     C_depth = well.loc[well.RHOB_MRG.notna(), 'TVD'].max()
     depth = well.loc[well.TVD >= surface, 'TVD']
 
-    top_form1 = tvd_top.iloc[0].TOP
-    bottom_form1 = tvd_top.iloc[0].BOTTOM
-
-    top_form2 = tvd_top.iloc[-1].TOP
-    bottom_form2 = tvd_top.iloc[-1].BOTTOM
-
-    form1_mean = well.loc[(well.index > top_form1) & (well.index < bottom_form1), 'RHOB_MRG'].mean()
-    form2_q90 = well.loc[(well.index > top_form2) & (well.index < bottom_form2), 'RHOB_MRG'].quantile(0.90)
+    col = 'RHOB_MRG'
+    n_data = int(round(len(well[col].dropna().index) * 0.05))
+    form1_mean = well[col].dropna().head(n_data).mean()
+    form2_q90 = well[col].dropna().tail(n_data).mean()
 
     # density and position for each point
 
