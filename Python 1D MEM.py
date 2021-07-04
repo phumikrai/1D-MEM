@@ -2903,14 +2903,14 @@ def den_extra(las, well, tvd_top, RHOml, surface):
 
     col = 'RHOB_MRG'
     n_data = int(round(len(well[col].dropna().index) * 0.05))
-    form1_mean = well[col].dropna().head(n_data).mean()
-    form2_q90 = well[col].dropna().tail(n_data).mean()
+    RHO_B = well[col].dropna().head(n_data).quantile(0.60)
+    RHO_C = well[col].dropna().tail(n_data).quantile(0.75)
 
     # density and position for each point
 
     A = (RHOml, A_depth)
-    B = (form1_mean, B_depth)
-    C = (form2_q90, C_depth)
+    B = (RHO_B, B_depth)
+    C = (RHO_C, C_depth)
 
     RHOBex = (A[0], B[0], C[0])
     TVDs = (A[1], B[1], C[1])
