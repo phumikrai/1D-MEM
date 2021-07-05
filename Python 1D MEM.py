@@ -2904,7 +2904,7 @@ def den_extra(las, well, tvd_top, RHOml, surface):
     col = 'RHOB_MRG'
     n_data = int(round(len(well[col].dropna().index) * 0.05))
     RHO_B = well[col].dropna().head(n_data).quantile(0.60)
-    RHO_C = well[col].dropna().tail(n_data).quantile(0.75)
+    RHO_C = well[col].dropna().tail(n_data).quantile(0.70)
 
     # density and position for each point
 
