@@ -2885,39 +2885,52 @@ multi_ndplot(lases, wells, well_names, multi_ndplot_name)
 
 # Function for fitting a density extrapolation curve
 
-def den_extra(las, well, tvd_top, RHOml, surface):
+def den_extra(las, well, wells, RHOml, RHOmls, surface, water_levels, field_type):
     """
     This function is able to fit a density extrapolation curve and create a extrapolated density.
     las = las files (.las) of the well data
     well = well logging data in pandas data frame with alias applied.
-    tvd_top = formation top data in pandas data frame.
+    wells = list of well logging data
     RHOml = density at ground level or sea floor
     surface = position of ground level (onshore) or sea floor (offshore)
     """
     # input parameters
 
-    A_depth = surface
-    B_depth = well.loc[well.RHOB_MRG.notna(), 'TVD'].min()
-    C_depth = well.loc[well.RHOB_MRG.notna(), 'TVD'].max()
-    depth = well.loc[well.TVD >= surface, 'TVD']
+    A_depth, B_depth, C_depth = [], [], []
+    A_RHOB, B_RHOB, C_RHOB = [], [], []
+    
+    for well_data, RHO, wl in zip(wells, RHOmls, water_levels):
 
-    col = 'RHOB_MRG'
-    n_data = int(round(len(well[col].dropna().index) * 0.05))
-    RHO_B = well[col].dropna().head(n_data).quantile(0.60)
-    RHO_C = well[col].dropna().tail(n_data).quantile(0.70)
+        if field_type == 'onshore':
+            surface_depth = 0
+        
+        else:
+            surface_depth = wl
+
+        A_depth.append(surface_depth)
+        B_depth.append(well_data.loc[well_data.RHOB_MRG.notna(), 'TVD'].min())
+        C_depth.append(well_data.loc[well_data.RHOB_MRG.notna(), 'TVD'].max())
+
+        n_data = int(round(len(well_data.RHOB_MRG.dropna().index) * 0.05))
+
+        A_RHOB.append(RHO)
+        B_RHOB.append(well_data.RHOB_MRG.dropna().head(n_data).quantile(0.60))
+        C_RHOB.append(well_data.RHOB_MRG.dropna().tail(n_data).quantile(0.70))
 
     # density and position for each point
 
-    A = (RHOml, A_depth)
-    B = (RHO_B, B_depth)
-    C = (RHO_C, C_depth)
+    A = (np.mean(A_RHOB), np.mean(A_depth))
+    B = (np.mean(B_RHOB), np.mean(B_depth))
+    C = (np.mean(C_RHOB), np.mean(C_depth))
 
     RHOBex = (A[0], B[0], C[0])
     TVDs = (A[1], B[1], C[1])
-    RHOs = (RHOml, RHOml, RHOml)
+    RHOs = (A[0], A[0], A[0])
     X = (RHOs, TVDs)
 
     popt, pcov = curve_fit(den_extra_eq, X, RHOBex)
+
+    depth = well.loc[well.TVD >= surface, 'TVD']
 
     well['RHOB_EX'] = RHOml + (popt[0] * (depth**popt[1]))
 
@@ -3052,11 +3065,10 @@ for las, well, tvd_top, RHOml, wl in zip(lases, wells, tvd_tops, RHOmls, water_l
 
     if field_type == 'onshore':
         surface = 0
-    
     else:
         surface = wl
 
-    las, well = den_extra(las, well, tvd_top, RHOml, surface)
+    las, well = den_extra(las, well, wells, RHOml, RHOmls, surface, water_levels, field_type)
     las, well = obp_cal(las, well, tvd_top, surface, field_type)
 
     print('Overburden pressure and its gradient are calculated for well %s' %las.well['WELL'].value)
