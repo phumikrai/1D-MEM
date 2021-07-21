@@ -38,7 +38,7 @@ class borehole:
 
         self.name = self.las.well['WELL'].value # well name
         self.df = self.las.df() # pandas dataframe
-        self.range = (self.las.well['STRT'].value, self.las.well['STOP'].value)
+        self.range = (self.las.well['STRT'].value, self.las.well['STOP'].value, self.las.well['STEP'].value)
 
         # setup data
 
