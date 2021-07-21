@@ -173,11 +173,13 @@ def setncheck(**kwargs):
     # manange duplicate
 
     for new_col in seen:
-        if len(seen[new_col]) != 1:
+        n_data = len(seen[new_col])
+        if n_data != 1:
             for col in seen[new_col]:
                 new_cols.pop(col)
             old_col = random.choice(seen[new_col])
             new_cols[old_col] = new_col
+            print('Randomly select %s from %d of them for well %s' %(new_col, n_data, name)) 
     
     # apply standard alias to data frame
 

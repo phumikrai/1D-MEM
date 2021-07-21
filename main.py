@@ -205,32 +205,23 @@ for well in wells:
     well.df.reset_index(inplace = True) # well logging data
     well.top['MD'] = well.top.TOP # formation top
 
-    for dataframe in [well.df, well.top, well.pres, well.core, well.drill, well.mud]:
+    # merge deviation data to another data frame
+    
+    dataframes = [well.df, well.top, well.pres, well.core, well.drill, well.mud] # setup dataframe list
+    well.df, well.top, well.pres, well.core, well.drill, well.mud = [merge_dev(dataframe=dataframe, dev=well.dev) for dataframe in dataframes]
 
-        print(dataframe)
-        print('\n')
+    # True Vertical Depth (TVD) calculation using minimum curvature method
 
-        # merge deviation data to another data frame
+    dataframes = [well.df, well.top, well.pres, well.core, well.drill, well.mud] # reset dataframe list
+    well.df, well.top, well.pres, well.core, well.drill, well.mud = [mini_cuv(dataframe=dataframe, ag=well.ag) for dataframe in dataframes]
 
-        dataframe = merge_dev(dataframe=dataframe, dev=well.dev)
-
-        # True Vertical Depth (TVD) calculation using minimum curvature method
-
-        dataframe = mini_cuv(dataframe=dataframe, ag=well.ag)
-
-        # True Vertical Depth Sub-Sea (TVDSS) calculation
-
+    # True Vertical Depth Sub-Sea (TVDSS) calculation
+    
+    for dataframe in dataframes:
         if well.type == 'onshore':
             dataframe['TVDSS'] = dataframe.TVD - well.gl
         else:
             dataframe['TVDSS'] = dataframe.TVD
-    
-        # print(well.df)
-        # print(well.top)
-        # print(well.pres)
-        # print(well.core)
-        # print(well.drill)
-        # print(well.mud)
 
     # well logging data alignment
 
@@ -246,6 +237,18 @@ for well in wells:
         dataframe.dropna(inplace = True)
         dataframe.reset_index(drop = True, inplace = True)
 
+    # update las file
+
+    descrs = ['True Vertical Depth', 'True Vertical Depth Sub-Sea',
+                'Well Deviation in Azimuth', 'Well Deviation in Angle']
+    cols = ['TVD', 'TVDSS', 'AZI', 'ANG']
+    units = ['m', 'm', 'degree', 'degree']
+
+    for i, col, unit, descr in zip(range(1,5), cols, units, descrs):
+        well.las.insert_curve(i, col, well.df[col], unit=unit, descr=descr, value='')
+
+    print('TVD and TVDSS are calculated for well %s' %well.name)
+
 # set directory to save files
 
 save_folder = 'Saved files'
@@ -256,7 +259,18 @@ if not os.path.isdir(save_path):
 
 if __name__ == '__main__':
 
+    # i=0
+    # print(wells[i].las.well)
+    # print(wells[i].df)
+    # print(wells[i].dev)
+    # print(wells[i].top)
+    # print(wells[i].pres)
+    # print(wells[i].core)
+    # print(wells[i].drill)
+    # print(wells[i].mud)
+    # print(wells[i].type)
 
+    # print(wells[0].df.columns)
+    # print(wells[0].las.curves)
 
-    
     pass

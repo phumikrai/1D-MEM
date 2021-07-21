@@ -209,13 +209,13 @@ def df_exten(**kwargs):
 
 def merge_dev(**kwargs):
     """
-    input:  dataframe = data in data frame
+    input:  dataframe = data in data frame contains MD column
             dev = deviation data in data frame
     ...
-    output: merged data with deviation data
+    output: merged data with deviation data, the azimuth (AZI) and angle (ANG) data are included.
     """
     
-    dataframe = kwargs.get('well')
+    dataframe = kwargs.get('dataframe')
     dev = kwargs.get('dev')
 
     import pandas as pd
@@ -223,7 +223,6 @@ def merge_dev(**kwargs):
     # merge deviation file
 
     dataframe = pd.concat([dev, dataframe]).sort_values(by = ['MD'])
-    print(dataframe)
     dataframe = dataframe.groupby('MD').max()
 
     # fill-in data using linear interpolation
@@ -238,8 +237,8 @@ def merge_dev(**kwargs):
 
 def mini_cuv(**kwargs):
     """
-    input:  dataframe = data in data frame
-            ag = air gap
+    input:  dataframe = data in data frame contains azimuth (AZI) and angle (ANG)
+            ag = air gap from field parameter determination
     ...
     output: true vertical depth column
     """
@@ -324,8 +323,6 @@ def setuptop(**kwargs):
     dataframe.fillna(value = {'TVD_BOTTOM': last_tvd, 'TVDSS_BOTTOM': last_tvdss}, inplace = True)
 
     return dataframe
-
-
 
 
 
