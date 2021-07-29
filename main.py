@@ -2,13 +2,15 @@
 
 import os, glob
 import lasio # well logging management
-import pandas as pd 
+import pandas as pd
+import numpy as np
 
 # import devoloped modules
 
 from mem.note import announce
 from mem.well import *
 from mem.audit import *
+from mem.mstati import *
 
 """
 
@@ -249,6 +251,76 @@ for well in wells:
 
     print('TVD and TVDSS are calculated for well %s' %well.name)
 
+"""
+
+Bad zone elimination
+
+"""
+
+# confidential interval factor for Bad hole flag cut-off
+
+cif = 0.75 # changable (0.00-1.00, default = 0.75)
+
+for well in wells:
+
+    # construct bad hole flag
+
+    well.df, well.las, well.other['ci'] = bhf_cal(dataframe=well.df, las=well.las, cif=cif)
+
+    # replace nan for bad hole zone
+
+    well.df = bhf_control(dataframe=well.df)
+
+    # replace nan for low vp/vs ratio
+
+    well.df = ratio_control(dataframe=well.df)
+
+"""
+
+Data normalization
+
+"""
+
+# prepare inputs for normalization
+
+ref_high = np.mean([well.df.GR.quantile(0.95) for well in wells])
+ref_low = np.mean([well.df.GR.quantile(0.05) for well in wells])
+
+# GR normalization
+
+for well in wells:
+    well.df, well.las = norm_gr(dataframe=well.df, las=well.las, ref_high=ref_high, ref_low=ref_low)
+
+"""
+
+Data systhetic
+
+"""
+
+# create dataset for data training
+
+dataset = set_data(dataframes=[well.df for well in wells])
+
+# synthesize the data
+
+for well in wells:
+    print('The data of well %s are being synthesized.' %well.name)
+    well.df, well.las = synthesis(dataframe=well.df, las=well.las, dataset=dataset)
+print('Data synthesis is done.')
+
+"""
+
+3.Mechanical Stratigraphy
+
+"""
+
+
+
+
+
+
+
+
 # set directory to save files
 
 save_folder = 'Saved files'
@@ -257,20 +329,78 @@ save_path = os.path.join(os.getcwd(), save_folder)
 if not os.path.isdir(save_path):
     os.makedirs(save_path)
 
-if __name__ == '__main__':
+"""
 
-    # i=0
-    # print(wells[i].las.well)
-    # print(wells[i].df)
-    # print(wells[i].dev)
-    # print(wells[i].top)
-    # print(wells[i].pres)
-    # print(wells[i].core)
-    # print(wells[i].drill)
-    # print(wells[i].mud)
-    # print(wells[i].type)
+TEST ZONE
 
-    # print(wells[0].df.columns)
-    # print(wells[0].las.curves)
+"""
 
-    pass
+# Function for initial plot for first inspection
+
+def inspection(dataframe, las):
+    """
+    inputs: dataframe = well logging in dataframe
+            las = well logging in las file
+    """
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # create figure
+
+    fig, axis = plt.subplots(nrows = 1, ncols = len(dataframe.columns), figsize = (30,20), sharey = True)
+    
+    units = [curve.unit for curve in las.curves]
+    index_unit = units.pop(0)
+
+    # plot setting for all axis
+
+    top_depth = dataframe.index.min()
+    bottom_depth = dataframe.index.max()
+
+    axis[0].set_ylabel('MD[%s]' %index_unit, fontsize = 15)
+
+    for ax, col, unit in zip(axis, dataframe.columns, units):
+        ax.set_ylim(top_depth, bottom_depth)
+        ax.invert_yaxis()
+        ax.minorticks_on() #Scale axis
+        ax.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
+        ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'black')
+        ax.set_xlabel(col + '\n[%s]' %unit, fontsize = 15)
+
+        if (col == 'RT') or (col == 'MSFL'):
+            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
+            ax.set_xscale('log')
+
+        elif col == 'BHF':
+
+            dataframe['bhf'] = np.nan
+            dataframe.loc[dataframe.BHF == 'BAD', 'bhf'] = 1
+            ax.fill_betweenx(dataframe.index, 0, dataframe.bhf, color = 'red', capstyle = 'butt', linewidth = 1, label = 'BAD')
+            dataframe.drop(columns = ['bhf'], inplace = True)
+
+        elif col in ['TVD', 'TVDSS', 'AZI', 'ANG', 'CAL', 'BS']:
+            ax.plot(dataframe[col], dataframe.index, linewidth = '1.0')
+        
+        else:
+            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
+
+    fig.tight_layout()
+
+    plt.show()
+
+# Plot available curves
+
+# test = wells[1].df.copy()
+# test_las = wells[1].las
+
+# inspection(dataframe=test, las=test_las)
+
+# print(wells[0].df[['GR', 'GR_NORM']].describe())
+# print(wells[1].df[['GR', 'GR_NORM']].describe())
+# print(wells[2].df[['GR', 'GR_NORM']].describe())
+
+print(dataset)
+print(wells[0].las.curves)
+print(wells[0].df)
+print(wells[0].df.describe())

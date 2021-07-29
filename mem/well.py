@@ -45,6 +45,7 @@ class borehole:
         self.df.rename_axis('MD', inplace=True)
         self.las.insert_curve(0, 'MD', self.df.index, unit = 'm', descr = 'Measured Depth', value = '')
         del self.las.curves['DEPTH']
+        self.other = {} # store for any utility
         
         # user determination
 
@@ -133,7 +134,7 @@ class borehole:
 
 def setncheck(**kwargs):
     """
-    input:  data = data for checking in data frame
+    input:  data = data for checking in dataframe
             dalias = alias for data
             dtype = data type
             name = well name
@@ -181,7 +182,7 @@ def setncheck(**kwargs):
             new_cols[old_col] = new_col
             print('Randomly select %s from %d of them for well %s' %(new_col, n_data, name)) 
     
-    # apply standard alias to data frame
+    # apply standard alias to dataframe
 
     setdata.rename(columns=new_cols, inplace=True)
 

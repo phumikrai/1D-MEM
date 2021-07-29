@@ -1,5 +1,12 @@
+"""
+
+Data audit
+
+"""
+
 # function for decision confirmation
 
+from os import name
 from pandas.core.frame import DataFrame
 
 
@@ -81,6 +88,7 @@ def grouping(**kwargs):
     ...
     output: grouped data by well name in dictionary
     """
+
     las = kwargs.get('las')
     dev = kwargs.get('dev')
     top = kwargs.get('top')
@@ -179,11 +187,11 @@ True vertical depth calculation
 
 def df_exten(**kwargs):
     """
-    input:  dataframe = well logging data in data frame
-            toprange = start logging point
+    input:  dataframe = well logging data in dataframe,
+            toprange = start logging point,
             step = step or rate of logging
     ...
-    output: extended data frame (to measured depth = 0) filled with nan
+    output: extended dataframe (to measured depth = 0) filled with nan
     """
 
     dataframe = kwargs.get('dataframe')
@@ -193,7 +201,7 @@ def df_exten(**kwargs):
     import pandas as pd
     import numpy as np
 
-    # create empty data frame
+    # create empty dataframe
     
     ex_depth = pd.DataFrame(np.arange(0, toprange, step), columns = ['MD'])
 
@@ -205,12 +213,12 @@ def df_exten(**kwargs):
 
     return dataframe
 
-# function for transfering the deviation data to another data frame
+# function for transfering the deviation data to another dataframe
 
 def merge_dev(**kwargs):
     """
-    input:  dataframe = data in data frame contains MD column
-            dev = deviation data in data frame
+    input:  dataframe = data in dataframe contains MD column,
+            dev = deviation data in dataframe
     ...
     output: merged data with deviation data, the azimuth (AZI) and angle (ANG) data are included.
     """
@@ -237,10 +245,10 @@ def merge_dev(**kwargs):
 
 def mini_cuv(**kwargs):
     """
-    input:  dataframe = data in data frame contains azimuth (AZI) and angle (ANG)
+    input:  dataframe = data in dataframe contains azimuth (AZI) and angle (ANG),
             ag = air gap from field parameter determination
     ...
-    output: true vertical depth column
+    output: true vertical depth
     """
 
     dataframe = kwargs.get('dataframe')
@@ -248,37 +256,41 @@ def mini_cuv(**kwargs):
 
     import numpy as np
 
-    # setup parameters
-    
-    md = dataframe.MD
-    prev_md = md.shift(periods = 1, fill_value = 0)
-    diff_md = md - prev_md
-    
-    ang = dataframe.ANG
-    prev_ang = ang.shift(periods = 1, fill_value = 0)
-    diff_ang = ang - prev_ang
-    
-    azi = dataframe.AZI
-    prev_azi = azi.shift(periods = 1, fill_value = 0)
-    diff_azi = azi - prev_azi
+    # ignore RuntimeWarning due to np.nan in input
 
-    I1 = np.radians(ang)
-    I2 = np.radians(prev_ang)
+    with np.errstate(invalid='ignore'):
 
-    dI = np.radians(diff_ang)
-    dA = np.radians(diff_azi)
+        # setup parameters
+        
+        md = dataframe.MD
+        prev_md = md.shift(periods = 1, fill_value = 0)
+        diff_md = md - prev_md
+        
+        ang = dataframe.ANG
+        prev_ang = ang.shift(periods = 1, fill_value = 0)
+        diff_ang = ang - prev_ang
+        
+        azi = dataframe.AZI
+        prev_azi = azi.shift(periods = 1, fill_value = 0)
+        diff_azi = azi - prev_azi
 
-    # computation
-    
-    cos_theta = np.cos(dI) - (np.sin(I1) * np.sin(I2) * (1 - np.cos(dA)))
-    theta = np.arccos(cos_theta)
-    rf = ((2 / theta) * np.tan(theta/2)).fillna(0)
+        I1 = np.radians(ang)
+        I2 = np.radians(prev_ang)
 
-    dataframe['TVD'] = np.cumsum((diff_md / 2) * (np.cos(I1) + np.cos(I2) * rf))
+        dI = np.radians(diff_ang)
+        dA = np.radians(diff_azi)
 
-    # remove air gab (ag)
+        # computation
+        
+        cos_theta = np.cos(dI) - (np.sin(I1) * np.sin(I2) * (1 - np.cos(dA)))
+        theta = np.arccos(cos_theta)
+        rf = ((2 / theta) * np.tan(theta/2)).fillna(0)
 
-    dataframe.TVD -= ag
+        dataframe['TVD'] = np.cumsum((diff_md / 2) * (np.cos(I1) + np.cos(I2) * rf))
+
+        # remove air gab (ag)
+
+        dataframe.TVD -= ag
 
     return dataframe
 
@@ -286,10 +298,11 @@ def mini_cuv(**kwargs):
 
 def df_alignment(**kwargs):
     """
-    input:  dataframe = well logging data in data frame
+    input:  dataframe = well logging data in dataframe
     ...
-    output: arranged data frame of well logging 
+    output: arranged dataframe of well logging 
     """
+
     dataframe = kwargs.get('dataframe')
 
     cols = dataframe.columns.tolist()
@@ -303,10 +316,11 @@ def df_alignment(**kwargs):
 
 def setuptop(**kwargs):
     """
-    input:  dataframe = formation top data in data frame
+    input:  dataframe = formation top data in dataframe
     ...
     output: setup formation top data
     """
+
     dataframe = kwargs.get('dataframe')
 
     last_tvd = dataframe.TVD.max()
@@ -324,5 +338,372 @@ def setuptop(**kwargs):
 
     return dataframe
 
+"""
+
+Bad zone elimination
+
+"""
+
+# function for calculate bad hole flag
+
+def bhf_cal(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            las = well logging data in las file (.las),
+            cif = confidential interval factor (0.00-1.00, default = 0.75)
+    ...
+    output: bad hole flag and cut-off interval
+    """
+
+    dataframe = kwargs.get('dataframe')
+    las = kwargs.get('las')
+    cif = kwargs.get('cif')
+
+    import numpy as np
+    import scipy.stats as st
+
+    # calculate confidential interval
+    
+    diff = dataframe.CAL - dataframe.BS
+    interval = st.norm.interval(alpha = cif, loc = round(np.mean(diff), 2), scale = round(np.std(diff), 2))
+
+    # apply interval as BHF cut-off
+
+    condition1 = (diff < interval[0]) | (diff > interval[1])
+    condition2 = (diff >= interval[0]) & (diff <= interval[1])
+
+    dataframe['BHF'] = np.nan
+    dataframe['BHF'].loc[condition1] = 'BAD'
+    dataframe['BHF'].loc[condition2] = 'GOOD'
+
+    # update LAS file
+
+    las.append_curve('BHF', dataframe['BHF'], unit='unitless', descr='Bad Hole Flag', value='')
+
+    return dataframe, las, interval
+
+# function for eliminating bad data using bad hole flag
+
+def bhf_control(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe
+    ...
+    output: well logging data replaced with nan at bad hole flag
+    """
+
+    dataframe = kwargs.get('dataframe')
+
+    import numpy as np
+
+    # eliminate the data based on bad hole flag
+
+    applied = ['GR', 'RHOB', 'NPHI', 'MSFL', 'RT', 'DTC', 'DTS']
+    dataframe.loc[dataframe.BHF == 'BAD', applied] = np.nan
+        
+    return dataframe
+
+# function for eliminating low Vp/Vs ratio data
+
+def ratio_control(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe
+    ...
+    output: well logging data replaced with nan at low Vp/Vs ratio
+    """
+
+    dataframe = kwargs.get('dataframe')
+
+    import numpy as np
+
+    # eliminate the data based on Vp/Vs ratio
+
+    dataframe.loc[dataframe.DTS/dataframe.DTC < 1.6, ['DTC', 'DTS']] = np.nan
+    
+    return dataframe
+
+"""
+
+Data normalization
+
+"""
+
+# function for gamma ray normalization using squeeze and stretch method
+
+def norm_gr(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            las = well logging data in las file (.las),
+            ref_high = reference GR max value,
+            ref_low = reference GR min value
+    ...
+    output: normalized gamma ray log
+    """
+
+    dataframe = kwargs.get('dataframe')
+    las = kwargs.get('las')
+    ref_high = kwargs.get('ref_high')
+    ref_low = kwargs.get('ref_low')
+
+    # normolize gamma ray curve
+
+    q95 = dataframe.GR.quantile(0.95)
+    q05 = dataframe.GR.quantile(0.05)
+    log = dataframe.GR
+
+    norm = (log - q05) / (q95 - q05)
+    dataframe['GR_NORM'] = ref_low + (ref_high - ref_low) * norm
+
+    # update las file
+
+    las.append_curve('GR_NORM', dataframe.GR_NORM, unit='API', descr='Normalized Gamma Ray', value='')
+
+    return dataframe, las
+
+"""
+
+Data systhetic
+
+"""
+
+# function for dataset creation
+
+def set_data(**kwargs):
+    """
+    input:  dataframes = list of well logging data in dataframe
+    ...
+    output: dataset for data training
+    """
+    
+    dataframes = kwargs.get('dataframes')
+
+    import pandas as pd
+
+    # create dataset from all logging data
+
+    cols = ['GR_NORM', 'MSFL', 'RT', 'NPHI', 'RHOB', 'DTC', 'DTS']
+    dataset = pd.DataFrame() # an empty dataframe
+    for dataframe in dataframes:
+        dataset = pd.concat([dataset, dataframe[cols]])
+    dataset.dropna(inplace = True)
+    dataset.reset_index(drop = True, inplace = True)
+
+    # window ratio (window/total number of the data points)
+
+    w_ratio = 0.0005
+    w_length = int(round(w_ratio * dataset[cols[0]].count()))
+
+    # noise filter using moving/running average
+
+    for col in cols:
+        dataset[col] = dataset[col].rolling(window = w_length).mean()
+    dataset.dropna(inplace = True)
+
+    return dataset
+
+# function for data synthesis
+
+def synthesis(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            las = well logging data in las file (.las),
+            dataset = data for training
+    ...
+    output: dataset for data training
+    """
+
+    dataframe = kwargs.get('dataframe')
+    las = kwargs.get('las')
+    dataset = kwargs.get('dataset')
+
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+
+    # test_size = size of test data for modeling (0.00 - 1.00, default = 0.3)
+    
+    test_size = 0.3
+
+    # define initial and synthesized data
+
+    initial = ['GR_NORM', 'MSFL', 'RT']
+    syns = ['NPHI', 'RHOB', 'DTC', 'DTS']
+    curvenames  = ['neutron porosity', 'density', ' compressional slowness', 'shear slowness']
+    units = ['V/V', 'g/c3', 'us/ft', 'us/ft']
+    prefixs = ['Synthetic ', 'Merged ']
+    cols = initial.copy()
+
+    # synthesize data one at the time
+
+    for syn, name, unit in zip(syns, curvenames, units):
+
+        curves = [syn+'_SYN', syn+'_MRG']
+        pred_outputs = {}
+        
+        # split the training data
+        
+        input_train = dataset[initial]
+        output_train = dataset[syn]
+        x_train, x_test, y_train, y_test = train_test_split(input_train, output_train, test_size = test_size, random_state = 0)
+
+        # Setup synthesizing input
+
+        pred_input = dataframe[cols].dropna()
+
+        # multi-linear regression
+
+        mlr_output, mlr_r2 = multilinear(pred_input=pred_input, x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
+        pred_outputs['Multi-linear Regression'] = [mlr_output, mlr_r2]
+
+        # random forest regression
+
+        rfr_output, rfr_r2 = randomforest(pred_input=pred_input, x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
+        pred_outputs['Random Forest Regression'] = [rfr_output, rfr_r2]
+
+        # decision tree regression
+
+        dtr_output, dtr_r2 = decisiontree(pred_input=pred_input, x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
+        pred_outputs['Decision Tree Regression'] = [dtr_output, dtr_r2]
+
+        # select the best regression
+
+        best_output, method, best_r2 = best_pred(pred_outputs=pred_outputs)
+        dataframe[curves[0]] = pd.DataFrame(best_output, index = pred_input.index)
+        
+        # merge the synthesis
+
+        dataframe[curves[1]] = dataframe[syn].fillna(dataframe[curves[0]])
+                
+        # setup new initial curves
+        
+        initial.append(syn)
+        cols.append(curves[0])
+
+        # update las file
+        
+        for curve, prefix in zip(curves, prefixs):
+            las.append_curve(curve, dataframe[curve], unit=unit, descr=prefix+name, value = '')
+            
+        # announce to user
+
+        corr_value = dataframe[syn].corr(dataframe[syn + '_SYN'])
+        print('%s log is synthesized using %s' %(syn, method))
+        print('R-squared value = %.2f, Correlation = %.2f' %(best_r2, corr_value))
+        
+    return dataframe, las
+
+# function for multi-linear regression
+
+def multilinear(**kwargs):
+    """
+    input:  pred_input = input for prediction
+            x_train = training inputs
+            x_test = test inputs
+            y_train = training output
+            y_test = test output
+    """
+    
+    pred_input = kwargs.get('pred_input')
+    x_train = kwargs.get('x_train')
+    x_test = kwargs.get('x_test')
+    y_train = kwargs.get('y_train')
+    y_test = kwargs.get('y_test')
+        
+    from sklearn.linear_model import LinearRegression
+
+    # prediction
+
+    model = LinearRegression()
+    model.fit(x_train, y_train)
+    r_square = model.score(x_test, y_test)
+    pred_output = model.predict(pred_input)
+
+    return pred_output, r_square
 
 
+# function for random forest regression
+
+def randomforest(**kwargs):
+    """
+    input:  pred_input = input for prediction
+            x_train = training inputs
+            x_test = test inputs
+            y_train = training output
+            y_test = test output
+    """
+    
+    pred_input = kwargs.get('pred_input')
+    x_train = kwargs.get('x_train')
+    x_test = kwargs.get('x_test')
+    y_train = kwargs.get('y_train')
+    y_test = kwargs.get('y_test')
+
+    from sklearn.ensemble import RandomForestRegressor
+
+    # n_tree = number of decision tree in random forest regression technique (default = 10)
+
+    n_tree = 10
+
+    # prediction
+
+    model = RandomForestRegressor(n_estimators = n_tree)
+    model.fit(x_train, y_train)
+    r_square = model.score(x_test, y_test)
+    pred_output = model.predict(pred_input)
+
+    return pred_output, r_square
+
+# function for decision tree regression
+
+def decisiontree(**kwargs):
+    """
+    input:  pred_input = input for prediction
+            x_train = training inputs
+            x_test = test inputs
+            y_train = training output
+            y_test = test output
+    """
+    
+    pred_input = kwargs.get('pred_input')
+    x_train = kwargs.get('x_train')
+    x_test = kwargs.get('x_test')
+    y_train = kwargs.get('y_train')
+    y_test = kwargs.get('y_test')
+
+    from sklearn.tree import DecisionTreeRegressor
+
+    # max_depth = the maximum depth of tree
+
+    max_depth = 10
+
+    # prediction
+
+    model = DecisionTreeRegressor(max_depth=max_depth)
+    model.fit(x_train, y_train)
+    r_square = model.score(x_test, y_test)
+    pred_output = model.predict(pred_input)
+
+    return pred_output, r_square
+
+# function for selecting the best regression by r-square
+
+def best_pred(**kwargs):
+    """
+    input:  pred_outputs = dictionary of regression method containing predicted output and r-square
+    ...
+    output: best predicted output
+    """
+
+    pred_outputs = kwargs.get('pred_outputs')
+
+    # selection
+
+    best_output = None
+    method = None
+    best_r2 = 0
+
+    for output in pred_outputs:
+        if  pred_outputs[output][1] > best_r2:
+            best_output = pred_outputs[output][0]
+            best_r2 = pred_outputs[output][1]
+            method = output
+            
+    return best_output, method, best_r2
