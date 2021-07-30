@@ -11,6 +11,7 @@ from mem.note import announce
 from mem.well import *
 from mem.audit import *
 from mem.mstati import *
+from mem.obp import *
 
 """
 
@@ -314,8 +315,31 @@ print('Data synthesis is done.')
 
 """
 
+# calculate volume of clay, effective porosity, and lithology
 
+for well in wells:
+    well.df, well.las = vcl_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = phie_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = litho_cal(dataframe=well.df, las=well.las)
+    print('Volume of clay, effective porosity, and lithology are calculated for well %s' %well.name)
 
+"""
+
+4.Overburden stress
+
+"""
+
+# calculate extrapolation equation coefficient
+
+mls = [well.ml for well in wells]
+surfaces = [0 if well.type == 'onshore' else well.wl for well in wells]
+dataframes = [well.df for well in wells]
+coefs = extracoef(dataframes=dataframes, mls=mls, surfaces=surfaces)
+
+# calculate overburden stress
+
+for well, surface in zip(wells, surfaces):
+    well.df, well.las = denextra(dataframe=well.df, las=well.las, ml=well.ml, surface=surface, coefs=coefs)
 
 
 
@@ -400,7 +424,6 @@ def inspection(dataframe, las):
 # print(wells[1].df[['GR', 'GR_NORM']].describe())
 # print(wells[2].df[['GR', 'GR_NORM']].describe())
 
-print(dataset)
 print(wells[0].las.curves)
 print(wells[0].df)
 print(wells[0].df.describe())
