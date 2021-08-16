@@ -8,10 +8,12 @@ import numpy as np
 # import devoloped modules
 
 from mem.note import announce
-from mem.well import *
-from mem.audit import *
-from mem.mstati import *
-from mem.obp import *
+from mem.well import *          # well class
+from mem.audit import *         # data audit
+from mem.mstati import *        # mechanical stratigraphy
+from mem.obp import *           # overburden stress
+from mem.pp import *            # pore pressure
+
 
 """
 
@@ -311,7 +313,7 @@ print('Data synthesis is done.')
 
 """
 
-3.Mechanical Stratigraphy
+3.Mechanical stratigraphy
 
 """
 
@@ -340,9 +342,23 @@ coefs = extracoef(dataframes=dataframes, mls=mls, surfaces=surfaces)
 
 for well, surface in zip(wells, surfaces):
     well.df, well.las = denextra(dataframe=well.df, las=well.las, ml=well.ml, surface=surface, coefs=coefs)
+    
+    if well.type == 'onshore':
+        well.df, well.las = obp_cal(dataframe=well.df, las=well.las)
+    else:
+        well.df, well.las = obp_cal(dataframe=well.df, las=well.las, wl=well.wl)
 
+    print('Overburden pressure and its gradient are calculated for well %s' %well.name)
 
+"""
 
+5.Pore presure
+
+"""
+
+for well in wells:
+    well.df, well.las = pp_cal(dataframe=well.df, las=well.las)
+    print('Pore pressure and its gradient are calculated for well %s' %well.name)
 
 
 # set directory to save files
@@ -425,5 +441,5 @@ def inspection(dataframe, las):
 # print(wells[2].df[['GR', 'GR_NORM']].describe())
 
 print(wells[0].las.curves)
-print(wells[0].df)
-print(wells[0].df.describe())
+print(wells[0].df.PG)
+print(wells[0].df.PG.describe())

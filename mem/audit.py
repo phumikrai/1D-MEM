@@ -230,14 +230,14 @@ def merge_dev(**kwargs):
 
     # merge deviation file
 
-    dataframe = pd.concat([dev, dataframe]).sort_values(by = ['MD'])
+    dataframe = pd.concat([dev, dataframe]).sort_values(by=['MD'])
     dataframe = dataframe.groupby('MD').max()
 
     # fill-in data using linear interpolation
 
     for col in ['AZI', 'ANG']:
-        dataframe[col].interpolate(method = 'linear', limit_area = 'inside', inplace = True)
-    dataframe.reset_index(inplace = True)
+        dataframe[col].interpolate(method='linear', limit_area='inside', inplace=True)
+    dataframe.reset_index(inplace=True)
 
     return dataframe
 
@@ -308,7 +308,7 @@ def df_alignment(**kwargs):
     cols = dataframe.columns.tolist()
     cols = cols[:1] + cols[-2:] + cols[1:-2]
     dataframe = dataframe[cols]
-    dataframe.set_index('MD', inplace = True)
+    dataframe.set_index('MD', inplace=True)
 
     return dataframe
 
@@ -326,15 +326,15 @@ def setuptop(**kwargs):
     last_tvd = dataframe.TVD.max()
     last_tvdss = dataframe.TVDSS.max()
 
-    dataframe.dropna(inplace = True)
-    dataframe.reset_index(drop = True, inplace = True)
+    dataframe.dropna(inplace=True)
+    dataframe.reset_index(drop=True, inplace=True)
 
-    dataframe.rename(columns = {'TVD':'TVD_TOP', 'TVDSS':'TVDSS_TOP'}, inplace = True)
+    dataframe.rename(columns = {'TVD':'TVD_TOP', 'TVDSS':'TVDSS_TOP'}, inplace=True)
 
     dataframe['TVD_BOTTOM'] = dataframe['TVD_TOP'].shift(periods = -1)
     dataframe['TVDSS_BOTTOM'] = dataframe['TVDSS_TOP'].shift(periods = -1)
 
-    dataframe.fillna(value = {'TVD_BOTTOM': last_tvd, 'TVDSS_BOTTOM': last_tvdss}, inplace = True)
+    dataframe.fillna(value = {'TVD_BOTTOM': last_tvd, 'TVDSS_BOTTOM': last_tvdss}, inplace=True)
 
     return dataframe
 
