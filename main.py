@@ -13,7 +13,7 @@ from mem.audit import *         # data audit
 from mem.mstati import *        # mechanical stratigraphy
 from mem.obp import *           # overburden stress
 from mem.pp import *            # pore pressure
-
+from mem.rsep import *          # rock strength and elastic properties
 
 """
 
@@ -356,9 +356,42 @@ for well, surface in zip(wells, surfaces):
 
 """
 
+# calculate pore pressure
+
 for well in wells:
     well.df, well.las = pp_cal(dataframe=well.df, las=well.las)
     print('Pore pressure and its gradient are calculated for well %s' %well.name)
+
+"""
+
+6.Rock Strength & Elastic Properties
+
+These equations are customizable through rsepeq.py:
+1. Static Young's modulus
+2. Unconfined compressive strength [UCS]
+
+"""
+
+# calculate YME, PR, UCS, FANG, and TSTR
+
+for well in wells:
+    well.df, well.las = yme_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = pr_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = ucs_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = fang_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = tstr_cal(dataframe=well.df, las=well.las)
+
+    print('Rock strength and elastic properties are calculated for well %s' %well.name)
+
+"""
+
+8.Minimum horizontal stress & 9.Maximum horizontal stress
+** P.S. 7.Horizontal Stress direction (skipped) **
+
+"""
+
+
+
 
 
 # set directory to save files
@@ -441,5 +474,5 @@ def inspection(dataframe, las):
 # print(wells[2].df[['GR', 'GR_NORM']].describe())
 
 print(wells[0].las.curves)
-print(wells[0].df.PG)
-print(wells[0].df.PG.describe())
+print(wells[0].df)
+print(wells[0].df.describe())
