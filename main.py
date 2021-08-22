@@ -14,6 +14,7 @@ from mem.mstati import *        # mechanical stratigraphy
 from mem.obp import *           # overburden stress
 from mem.pp import *            # pore pressure
 from mem.rsep import *          # rock strength and elastic properties
+from mem.stress import *        # minimum and maximum horizontal stresses
 
 """
 
@@ -380,13 +381,26 @@ for well in wells:
     well.df, well.las = ucs_cal(dataframe=well.df, las=well.las)
     well.df, well.las = fang_cal(dataframe=well.df, las=well.las)
     well.df, well.las = tstr_cal(dataframe=well.df, las=well.las)
-
     print('Rock strength and elastic properties are calculated for well %s' %well.name)
 
 """
 
 8.Minimum horizontal stress & 9.Maximum horizontal stress
 ** P.S. 7.Horizontal Stress direction (skipped) **
+
+"""
+
+# calculate horizontal stresses
+
+for well in wells:
+    maxstrain, minstrain = strain_cal(dataframe=well.df, drill=well.drill)
+    well.df, well.las = stress_cal(dataframe=well.df, las=well.las, maxstrain=maxstrain, minstrain=minstrain)
+    print('Maximum and minimum horizontal stresses are calculated for well %s' %well.name)
+    print('With maximum and minimum tectonic strains, %.5f and %.5f.' %(maxstrain, minstrain))
+
+"""
+
+10.Failure analysis
 
 """
 
@@ -428,8 +442,8 @@ def inspection(dataframe, las):
 
     # plot setting for all axis
 
-    top_depth = dataframe.index.min()
     bottom_depth = dataframe.index.max()
+    top_depth = dataframe.index.min()
 
     axis[0].set_ylabel('MD[%s]' %index_unit, fontsize = 15)
 
@@ -462,17 +476,16 @@ def inspection(dataframe, las):
 
     plt.show()
 
-# Plot available curves
 
-# test = wells[1].df.copy()
-# test_las = wells[1].las
-
-# inspection(dataframe=test, las=test_las)
-
-# print(wells[0].df[['GR', 'GR_NORM']].describe())
-# print(wells[1].df[['GR', 'GR_NORM']].describe())
-# print(wells[2].df[['GR', 'GR_NORM']].describe())
-
+testcols = ['YME', 'PR', 'UCS', 'FANG', 'TSTR', 'OBP', 'SHmax', 'Shmin']
 print(wells[0].las.curves)
-print(wells[0].df)
-print(wells[0].df.describe())
+print(wells[0].df[testcols].dropna())
+print(wells[0].df[testcols].describe())
+
+print(wells[0].df.loc[wells[0].df['SHmax'] < 0])
+
+
+# test = wells[0].df[['YME', 'PR', 'UCS', 'FANG', 'TSTR']]
+
+# print(test.loc[test['YME'] < 0])
+# print(test.loc[test['PR'] < 0])

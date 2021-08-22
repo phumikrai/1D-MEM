@@ -32,11 +32,11 @@ UCS         = Unconfined compressive strength   in megapascal [MPa]
 
 def syme_sand(**kwargs):
     """
-    input:  Rhob        = density            
-            dt          = compressional wave slowness
-            Vp          = compressional wave velocity
-            Phie        = effective porosity
-            Dyme        = dynamic Young's modulus              
+    input:  Rhob    = density            
+            dt      = compressional wave slowness
+            Vp      = compressional wave velocity
+            Phie    = effective porosity
+            Dyme    = dynamic Young's modulus              
     ...
     output: static Young's modulus (Syme) in gigapascal [GPa]
     """
@@ -80,11 +80,11 @@ def syme_sand(**kwargs):
 
 def syme_shale(**kwargs):
     """
-    input:  Rhob        = density            
-            dt          = compressional wave slowness
-            Vp          = compressional wave velocity
-            Phie        = effective porosity
-            Dyme        = dynamic Young's modulus              
+    input:  Rhob    = density            
+            dt      = compressional wave slowness
+            Vp      = compressional wave velocity
+            Phie    = effective porosity
+            Dyme    = dynamic Young's modulus              
     ...
     output: static Young's modulus (Syme) in gigapascal [GPa]
     """
@@ -122,11 +122,11 @@ def syme_shale(**kwargs):
 
 def ucs_sand(**kwargs):
     """
-    input:  Rhob        = density            
-            dt          = compressional wave slowness
-            Vp          = compressional wave velocity
-            Phie        = effective porosity
-            Syme        = static Young's modulus              
+    input:  Rhob    = density            
+            dt      = compressional wave slowness
+            Vp      = compressional wave velocity
+            Phie    = effective porosity
+            Syme    = static Young's modulus              
     ...
     output: Unconfined compressive strength (UCS) in megapascal [MPa]
     """
@@ -167,11 +167,11 @@ def ucs_sand(**kwargs):
 
 def ucs_shale(**kwargs):
     """
-    input:  Rhob        = density            
-            dt          = compressional wave slowness
-            Vp          = compressional wave velocity
-            Phie        = effective porosity
-            Syme        = static Young's modulus              
+    input:  Rhob    = density            
+            dt      = compressional wave slowness
+            Vp      = compressional wave velocity
+            Phie    = effective porosity
+            Syme    = static Young's modulus              
     ...
     output: Unconfined compressive strength (UCS) in megapascal [MPa]
     """

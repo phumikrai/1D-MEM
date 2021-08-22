@@ -484,18 +484,18 @@ def set_data(**kwargs):
     dataset = pd.DataFrame() # an empty dataframe
     for dataframe in dataframes:
         dataset = pd.concat([dataset, dataframe[cols]])
-    dataset.dropna(inplace = True)
-    dataset.reset_index(drop = True, inplace = True)
+    dataset.dropna(inplace=True)
+    dataset.reset_index(drop=True, inplace=True)
 
     # window ratio (window/total number of the data points)
 
     w_ratio = 0.0005
-    w_length = int(round(w_ratio * dataset[cols[0]].count()))
+    w_length = int(round(w_ratio * len(dataset.index)))
 
     # noise filter using moving/running average
 
     for col in cols:
-        dataset[col] = dataset[col].rolling(window = w_length).mean()
+        dataset[col] = dataset[col].rolling(window=w_length).mean()
     dataset.dropna(inplace = True)
 
     return dataset
