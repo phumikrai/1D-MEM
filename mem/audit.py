@@ -203,13 +203,13 @@ def df_exten(**kwargs):
 
     # create empty dataframe
     
-    ex_depth = pd.DataFrame(np.arange(0, toprange, step), columns = ['MD'])
+    ex_depth = pd.DataFrame(np.arange(0, toprange, round(step, 2)), columns=['MD'])
 
     # merge with well logging data
 
-    dataframe.reset_index(inplace = True)
-    dataframe = pd.concat([ex_depth, dataframe]).sort_values(by = ['MD'])
-    dataframe.set_index('MD', inplace = True)
+    dataframe.reset_index(inplace=True)
+    dataframe = pd.concat([ex_depth, dataframe]).sort_values(by=['MD'])
+    dataframe.set_index('MD', inplace=True)
 
     return dataframe
 
@@ -526,7 +526,7 @@ def synthesis(**kwargs):
 
     initial = ['GR_NORM', 'MSFL', 'RT']
     syns = ['NPHI', 'RHOB', 'DTC', 'DTS']
-    curvenames  = ['neutron porosity', 'density', ' compressional slowness', 'shear slowness']
+    curvenames  = ['neutron porosity', 'density', 'compressional slowness', 'shear slowness']
     units = ['V/V', 'g/c3', 'us/ft', 'us/ft']
     prefixs = ['Synthetic ', 'Merged ']
     cols = initial.copy()

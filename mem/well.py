@@ -106,7 +106,7 @@ class borehole:
 
         # note in las file
 
-        las_file.other = 'This file was written by python in %s' %datetime.date.today().strftime('%m-%d-%Y %H:%M')
+        las_file.other = 'This file was written by python in %s' %datetime.date.today().strftime('%m-%d-%Y')
 
         # setup header for csv file
 

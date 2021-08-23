@@ -15,6 +15,7 @@ from mem.obp import *           # overburden stress
 from mem.pp import *            # pore pressure
 from mem.rsep import *          # rock strength and elastic properties
 from mem.stress import *        # minimum and maximum horizontal stresses
+from mem.failana import *       # failure analysis
 
 """
 
@@ -404,9 +405,19 @@ for well in wells:
 
 """
 
+# create mud window and breakout width
 
+for well in wells:
+    well.df, well.las = merge_mud(dataframe=well.df, las=well.las, mud=well.mud)
+    well.df, well.las = mudwindow_cal(dataframe=well.df, las=well.las)
+    well.df, well.las = wbo_cal(dataframe=well.df, las=well.las)
+    print('Mud window is created for well %s' %well.name)
 
+"""
 
+Export data to .las and .csv files
+
+"""
 
 # set directory to save files
 
@@ -416,76 +427,8 @@ save_path = os.path.join(os.getcwd(), save_folder)
 if not os.path.isdir(save_path):
     os.makedirs(save_path)
 
-"""
+# export files
 
-TEST ZONE
-
-"""
-
-# Function for initial plot for first inspection
-
-def inspection(dataframe, las):
-    """
-    inputs: dataframe = well logging in dataframe
-            las = well logging in las file
-    """
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    # create figure
-
-    fig, axis = plt.subplots(nrows = 1, ncols = len(dataframe.columns), figsize = (30,20), sharey = True)
-    
-    units = [curve.unit for curve in las.curves]
-    index_unit = units.pop(0)
-
-    # plot setting for all axis
-
-    bottom_depth = dataframe.index.max()
-    top_depth = dataframe.index.min()
-
-    axis[0].set_ylabel('MD[%s]' %index_unit, fontsize = 15)
-
-    for ax, col, unit in zip(axis, dataframe.columns, units):
-        ax.set_ylim(top_depth, bottom_depth)
-        ax.invert_yaxis()
-        ax.minorticks_on() #Scale axis
-        ax.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
-        ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'black')
-        ax.set_xlabel(col + '\n[%s]' %unit, fontsize = 15)
-
-        if (col == 'RT') or (col == 'MSFL'):
-            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
-            ax.set_xscale('log')
-
-        elif col == 'BHF':
-
-            dataframe['bhf'] = np.nan
-            dataframe.loc[dataframe.BHF == 'BAD', 'bhf'] = 1
-            ax.fill_betweenx(dataframe.index, 0, dataframe.bhf, color = 'red', capstyle = 'butt', linewidth = 1, label = 'BAD')
-            dataframe.drop(columns = ['bhf'], inplace = True)
-
-        elif col in ['TVD', 'TVDSS', 'AZI', 'ANG', 'CAL', 'BS']:
-            ax.plot(dataframe[col], dataframe.index, linewidth = '1.0')
-        
-        else:
-            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
-
-    fig.tight_layout()
-
-    plt.show()
-
-
-testcols = ['YME', 'PR', 'UCS', 'FANG', 'TSTR', 'OBP', 'SHmax', 'Shmin']
-print(wells[0].las.curves)
-print(wells[0].df[testcols].dropna())
-print(wells[0].df[testcols].describe())
-
-print(wells[0].df.loc[wells[0].df['SHmax'] < 0])
-
-
-# test = wells[0].df[['YME', 'PR', 'UCS', 'FANG', 'TSTR']]
-
-# print(test.loc[test['YME'] < 0])
-# print(test.loc[test['PR'] < 0])
+for well in wells:
+    well.export(save_path=save_path)
+    print('Files (.las and .csv) of well %s are export' %well.name)

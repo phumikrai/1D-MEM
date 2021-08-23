@@ -7,6 +7,7 @@ Minimum & maximum horizontal stresses
 # function for maximum and minimum tectonic strain calculation
 
 from scipy.sparse import data
+from scipy.stats.stats import DescribeResult
 
 
 def strain_cal(**kwargs):
@@ -171,19 +172,19 @@ def stress_cal(**kwargs):
     # calculate minimum and maximum horizontal stresses
 
     cols = ['SHmax', 'Shmin']
+    descrs = ['Maximum', 'Minimum']
 
-    for col in cols:
+    for col, descr in zip(cols, descrs):
         if col == 'SHmax':
             strain1, strain2 = maxstrain, minstrain
         else:
             strain1, strain2 = minstrain, maxstrain
-        
+
         dataframe[col] = stress_eq(OBP=dataframe.OBP, PP=dataframe.PP, YME=dataframe.YME, 
                                     PR=dataframe.PR, alpha=1, strain1=strain1, strain2=strain2)
 
-    # update LAS file
+        # update LAS file
 
-    las.append_curve('SHmax', dataframe['SHmax'], unit = 'psi', descr = 'Maximum horizontal stress', value = '')
-    las.append_curve('Shmin', dataframe['Shmin'], unit = 'psi', descr = 'Minimum horizontal stress', value = '')
+        las.append_curve(col, dataframe[col], unit = 'psi', descr = '%s horizontal stress' %descr, value = '')
 
     return dataframe, las
