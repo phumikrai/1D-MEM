@@ -212,3 +212,26 @@ def setncheck(**kwargs):
         print('%s data of well %s is not completed.' %(dtype, name))
 
     return completion
+
+# function for drop text columns
+
+def textcol_drop(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            las = well logging data in las file (.las)
+    ...
+    output: drop text data such BHF and LITHO
+    """
+
+    dataframe = kwargs.get('dataframe')
+    las = kwargs.get('las')
+
+    # drop data
+
+    text_cols = ['BHF', 'LITHO']
+
+    for col in text_cols:
+        dataframe.drop(columns = [col], inplace = True)
+        del las.curves[col]
+
+    return dataframe, las

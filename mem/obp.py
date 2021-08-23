@@ -16,6 +16,7 @@ def denextra(**kwargs):
     ...
     output: extrapolated density
     """
+    
     dataframe = kwargs.get('dataframe')
     las = kwargs.get('las')
     ml = kwargs.get('ml')

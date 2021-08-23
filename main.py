@@ -430,5 +430,6 @@ if not os.path.isdir(save_path):
 # export files
 
 for well in wells:
+    well.df, well.las = textcol_drop(dataframe=well.df, las=well.las) # drop text data 
     well.export(save_path=save_path)
-    print('Files (.las and .csv) of well %s are export' %well.name)
+    print('Well %s data are export as .las and .csv' %well.name)
