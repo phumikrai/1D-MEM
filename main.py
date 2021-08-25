@@ -16,6 +16,7 @@ from mem.pp import *            # pore pressure
 from mem.rsep import *          # rock strength and elastic properties
 from mem.stress import *        # minimum and maximum horizontal stresses
 from mem.failana import *       # failure analysis
+from mem.plots import *         # all model plots
 
 """
 
@@ -209,7 +210,7 @@ for well in wells:
     
     # setup MD column
 
-    well.df.reset_index(inplace = True) # well logging data
+    well.df.reset_index(inplace=True) # well logging data
     well.top['MD'] = well.top.TOP # formation top
 
     # merge deviation data to another data frame
@@ -395,6 +396,7 @@ for well in wells:
 
 for well in wells:
     maxstrain, minstrain = strain_cal(dataframe=well.df, drill=well.drill)
+    maxstrain, minstrain = 0.0002, 0.0001
     well.df, well.las = stress_cal(dataframe=well.df, las=well.las, maxstrain=maxstrain, minstrain=minstrain)
     print('Maximum and minimum horizontal stresses are calculated for well %s' %well.name)
     print('With maximum and minimum tectonic strains, %.5f and %.5f.' %(maxstrain, minstrain))
@@ -415,21 +417,33 @@ for well in wells:
 
 """
 
-Export data to .las and .csv files
+All model plots
 
 """
 
 # set directory to save files
 
-save_folder = 'Saved files'
-save_path = os.path.join(os.getcwd(), save_folder)
+savefolder = 'Saved files'
+savepath = os.path.join(os.getcwd(), savefolder)
 
-if not os.path.isdir(save_path):
-    os.makedirs(save_path)
+if not os.path.isdir(savepath):
+    os.makedirs(savepath)
+
+for well in wells:
+    filename = '%s_MEM.jpg' %well.name
+    mem_plot(dataframe=well.df, formtop=well.top, pres=well.pres, core=well.core,
+                forms=allforms, toprange=well.range[0], botrange=well.range[1],
+                wellname=well.name, savepath=savepath, filename=filename)
+
+"""
+
+Export data to .las and .csv files
+
+"""
 
 # export files
 
 for well in wells:
-    well.df, well.las = textcol_drop(dataframe=well.df, las=well.las) # drop text data 
-    well.export(save_path=save_path)
+    # well.df, well.las = textcol_drop(dataframe=well.df, las=well.las) # drop text data 
+    well.export(savepath=savepath)
     print('Well %s data are export as .las and .csv' %well.name)

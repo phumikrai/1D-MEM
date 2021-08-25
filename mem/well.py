@@ -79,11 +79,12 @@ class borehole:
 
     def export(self, **kwargs):
         """
-        save_path = path to saved folder
+        savepath = path to save folder
         ...
         export new las file (.las) and comma-separated values file (.csv)
         """
-        save_path = kwargs.get('save_path')
+
+        savepath = kwargs.get('savepath')
 
         import os, datetime
         import lasio
@@ -120,17 +121,17 @@ class borehole:
 
         # export las and csv files
 
-        las_folder, csv_folder = 'LASfiles', 'CSVfiles'
+        lasfolder, csvfolder = 'LASfiles', 'CSVfiles'
 
-        for folder in [las_folder, csv_folder]:
-            if not os.path.isdir(os.path.join(save_path, folder)):
-                os.makedirs(os.path.join(save_path, folder))
+        for folder in [lasfolder, csvfolder]:
+            if not os.path.isdir(os.path.join(savepath, folder)):
+                os.makedirs(os.path.join(savepath, folder))
 
-        las_file.write(os.path.join(save_path, las_folder, 
+        las_file.write(os.path.join(savepath, lasfolder, 
                                     '%s_py.las' %self.name), version = 2.0) # export las
         
-        self.df.rename_axis(index).to_csv(os.path.join(save_path, csv_folder, 
-                                                        '%s_py.csv' %self.name), header = headers) # export csv
+        self.df.rename_axis(index).to_csv(os.path.join(savepath, csvfolder, 
+                                                        '%s_py.csv' %self.name), header=headers) # export csv
 
 def setncheck(**kwargs):
     """

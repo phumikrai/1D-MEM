@@ -329,12 +329,12 @@ def setuptop(**kwargs):
     dataframe.dropna(inplace=True)
     dataframe.reset_index(drop=True, inplace=True)
 
-    dataframe.rename(columns = {'TVD':'TVD_TOP', 'TVDSS':'TVDSS_TOP'}, inplace=True)
+    dataframe.rename(columns={'TVD':'TVD_TOP', 'TVDSS':'TVDSS_TOP'}, inplace=True)
 
-    dataframe['TVD_BOTTOM'] = dataframe['TVD_TOP'].shift(periods = -1)
-    dataframe['TVDSS_BOTTOM'] = dataframe['TVDSS_TOP'].shift(periods = -1)
+    dataframe['TVD_BOT'] = dataframe['TVD_TOP'].shift(periods=-1)
+    dataframe['TVDSS_BOT'] = dataframe['TVDSS_TOP'].shift(periods=-1)
 
-    dataframe.fillna(value = {'TVD_BOTTOM': last_tvd, 'TVDSS_BOTTOM': last_tvdss}, inplace=True)
+    dataframe.fillna(value={'TVD_BOT':last_tvd, 'TVDSS_BOT':last_tvdss}, inplace=True)
 
     return dataframe
 
