@@ -139,26 +139,6 @@ for well in wells:
         well.ag = well.kb
         print('Water level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.wl, well.ml, well.ag))
 
-"""
-
-Temporary code 2
-
-"""
-
-# for well in wells:
-#     well.type = 'onshore'
-#     well.kb = 62.91
-#     well.gl = 53.62
-#     well.ml = 1.32
-#     well.ag = well.kb - well.gl
-#     print('Well %s; Ground level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.name, well.gl, well.ml, well.ag))
-
-"""
-
-Temporary code 2
-
-"""
-
 # extract formation names
 
 formnames = []
