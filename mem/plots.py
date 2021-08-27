@@ -6,6 +6,9 @@ Model plots
 
 # function for a log plot
 
+from mem.audit import filename
+
+
 def logplot(**kwargs):
     """
     input:  axis = sub-axis,
@@ -99,15 +102,14 @@ def plotscale(**kwargs):
 def mem_plot(**kwargs):
     """
     input:  dataframe = well logging data in dataframe,
-            top = formation top data (.csv),
+            formtop = formation top data (.csv),
             pres = pressure data (.csv),
             core = core data (.csv),
             forms = formation name and its color code in dictonary,
             toprange = top depth point,
             botrange = bottom depth point,
             wellname = well name,
-            savepath = path to save folder,
-            filename = name of saved figure
+            savepath = path to save folder
     """
 
     dataframe = kwargs.get('dataframe')
@@ -119,7 +121,6 @@ def mem_plot(**kwargs):
     botrange = kwargs.get('botrange')
     wellname = kwargs.get('wellname')
     savepath = kwargs.get('savepath')
-    filename = kwargs.get('filename')
 
     import os
     import numpy as np
@@ -459,71 +460,562 @@ def mem_plot(**kwargs):
 
     # Save files
 
+    filename = '%s_MEM.jpg' %wellname
     memfolder = 'MEM'
     mempath = os.path.join(savepath, memfolder)
 
     if not os.path.isdir(mempath):
         os.makedirs(mempath)
 
-    plt.savefig(os.path.join(mempath, filename), dpi = 300, format='jpg', bbox_inches = "tight")
+    plt.savefig(os.path.join(mempath, filename), dpi=300, format='jpg', bbox_inches="tight")
+    plt.close(fig)
 
-# Function for initial plot for first inspection
+# Function for check the quality of the input data for interested zone
 
-def inspection(dataframe, las):
+def boxes_plot(**kwargs):
     """
-    inputs: dataframe = well logging in dataframe
-            las = well logging in las file
+    input:  dataframes = list of well logging data in dataframe,
+            formtops = formation top data (.csv),
+            wellids = dictionary of name and color code,
+            formation = name of the formation where the data can be compared,
+            savepath = path to save folder
     """
 
+    dataframes = kwargs.get('dataframes')
+    formtops = kwargs.get('formtops')
+    wellids = kwargs.get('wellids')
+    formation = kwargs.get('formation')
+    savepath = kwargs.get('savepath')
+
+    import os
     import matplotlib.pyplot as plt
-    import numpy as np
+    import matplotlib.ticker as mticker
 
-    # create figure
-
-    fig, axis = plt.subplots(nrows = 1, ncols = len(dataframe.columns), figsize = (30,20), sharey = True)
+    # Set data for specific interval
     
-    units = [curve.unit for curve in las.curves]
-    index_unit = units.pop(0)
+    GR_plot, RHOB_plot, NPHI_plot, DTC_plot, DTS_plot = [list() for i in range(5)]
+    YME_plot, PR_plot, UCS_plot, FANG_plot, TSTR_plot = [list() for i in range(5)]
 
-    # plot setting for all axis
+    data_plots = [GR_plot, RHOB_plot, NPHI_plot, DTC_plot, DTS_plot,
+                  YME_plot, PR_plot, UCS_plot, FANG_plot, TSTR_plot]
+    
+    selected_cols = ['GR_NORM', 'RHOB_MRG', 'NPHI_MRG', 'DTC_MRG', 
+                     'DTS_MRG','YME', 'PR', 'UCS', 'FANG', 'TSTR']
+    
+    curve_labels = ['GR', 'RHOB', 'NPHI', 'DTC', 'DTS',
+                    'YME', 'PR', 'UCS', 'FANG', 'TSTR']
 
-    bottom_depth = dataframe.index.max()
-    top_depth = dataframe.index.min()
+    unit_labels = ['API', 'g/c3', 'V/V', 'us/ft', 'us/ft',
+                    'psi', 'unitless', 'psi', 'degree', 'psi']
 
-    axis[0].set_ylabel('MD[%s]' %index_unit, fontsize = 15)
+    welllabels = []
+    
+    for dataframe, top, name in zip(dataframes, formtops, wellids):
+        
+        # Check available data for selected formation
+        
+        if formation in list(top.FORM):
+            
+            # Set interval from each well for selected formation
 
-    for ax, col, unit in zip(axis, dataframe.columns, units):
-        ax.set_ylim(top_depth, bottom_depth)
+            topdepth = float(top.loc[top.FORM == formation, 'TOP'])
+            botdepth = float(top.loc[top.FORM == formation, 'BOT'])
+
+            welllabels.append(name)
+            
+            # Select data from each well by interval
+
+            condition = (dataframe.index >= topdepth) & (dataframe.index <= botdepth)
+
+            for store, col in zip(data_plots, selected_cols):
+                store.append(dataframe.loc[condition, col].dropna())
+
+    # Setup well colors for plotting
+
+    wellcolors = []
+
+    for name in welllabels:
+        wellcolors.append(wellids[name])
+
+    well_colo = [item for sublist in [(c, c) for c in wellcolors] for item in sublist]
+    
+    # Create figure
+    
+    fig, axis = plt.subplots(nrows=2, ncols=5, figsize=(12.5, 5), sharey=False)
+    fig.suptitle('Boxes Plot of formation %s' %formation, fontsize=20, y=1.0)
+    axis = axis.flatten()
+    
+    # Plot setting for all axis
+    
+    for data, label, unit, ax in zip(data_plots, curve_labels, unit_labels, axis):
+        boxes = ax.boxplot(data, labels=welllabels, meanline=True, notch=True, showfliers=False, patch_artist=True)
+        ax.set_ylabel('[%s]' %unit)
+
+        # scientific notation for YME
+
+        if label == 'YME':
+            formatter = mticker.ScalarFormatter(useMathText=True)
+            formatter.set_scientific(True) 
+            formatter.set_powerlimits((-5,5))
+            ax.yaxis.set_major_formatter(formatter)
+        
+        # set decoration
+        for patch, color in zip(boxes['boxes'], wellcolors): 
+            patch.set_facecolor(color) 
+        
+        for box_wk, box_cap, color in zip(boxes['whiskers'], boxes['caps'], well_colo):
+            box_wk.set(color=color, linewidth=1.5)
+            box_cap.set(color=color, linewidth=3)
+        
+        for median in boxes['medians']:
+            median.set(color = 'black', linewidth=3)  
+        ax.set_title(label)
+    
+    fig.tight_layout()
+
+    # Save files
+
+    filename = 'LQC_%s_Boxplot.jpg' %formation
+    LQCfolder = 'LQC'
+    LQCpath = os.path.join(savepath, LQCfolder)
+
+    if not os.path.isdir(LQCpath):
+        os.makedirs(LQCpath)
+
+    plt.savefig(os.path.join(LQCpath, filename), dpi=300, format='jpg', bbox_inches="tight")
+    plt.close(fig)
+
+# function for overburden stress plot
+
+def obp_plot(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            wellname = well name,
+            savepath = path to save folder
+    """
+
+    dataframe = kwargs.get('dataframe')
+    wellname = kwargs.get('wellname')
+    savepath = kwargs.get('savepath')
+
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Create figure and subplots
+    
+    fig, axis = plt.subplots(nrows = 1, ncols = 3, figsize = (8, 12), sharey = True)
+    fig.suptitle('Overburden Pressure of Well %s' %wellname, fontsize= 20, y = 1.0)
+    
+    # General setting for all axis
+
+    axis[0].set_ylabel('TVD[m]')
+    
+    for ax in axis:
+        ax.set_ylim(0, dataframe.TVD.max())
         ax.invert_yaxis()
         ax.minorticks_on() #Scale axis
+        ax.get_xaxis().set_visible(False) 
         ax.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
-        ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'black')
-        ax.set_xlabel(col + '\n[%s]' %unit, fontsize = 15)
+        ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'blue')
+    
+    # Density and extropolated density
 
-        if (col == 'RT') or (col == 'MSFL'):
-            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
-            ax.set_xscale('log')
+    scale1 = np.arange(0, 3.1, 0.5)
+    scalelist1 = ['0', '', '', '', '', '', '3']
+    
+    ax11 = axis[0].twiny()
+    logplot(axis=ax11, log=dataframe.RHOB_MRG, depth=dataframe.TVD, color='red', label='RHOB[g/c3]',
+                position=1.02, scale=scale1, scalelabel=scalelist1)    
+    ax11.grid(True)
 
-        elif col == 'BHF':
+    ax12 = axis[0].twiny()
+    logplot(axis=ax12, log=dataframe.RHOB_EX, depth=dataframe.TVD, color='black', label='RHOB_EX[g/c3]',
+                position=1.08, scale=scale1, scalelabel=scalelist1, width='1')
+    
+    # Overdurden Pressure
 
-            dataframe['bhf'] = np.nan
-            dataframe.loc[dataframe.BHF == 'BAD', 'bhf'] = 1
-            ax.fill_betweenx(dataframe.index, 0, dataframe.bhf, color = 'red', capstyle = 'butt', linewidth = 1, label = 'BAD')
-            dataframe.drop(columns = ['bhf'], inplace = True)
+    scale2, scalelist2 = plotscale(maxscale=dataframe.OBP.max(), minscale=0, increment=2000)
+    
+    ax21 = axis[1].twiny()
+    logplot(axis=ax21, log=dataframe.OBP, depth=dataframe.TVD, color='black', label='OBP[psi]',
+                position=1.02, scale=scale2, scalelabel=scalelist2, width='1')  
+    ax21.grid(True)
 
-        elif col in ['TVD', 'TVDSS', 'AZI', 'ANG', 'CAL', 'BS']:
-            ax.plot(dataframe[col], dataframe.index, linewidth = '1.0')
+    # Overdurden Gradient
+
+    scale3, scalelist3 = plotscale(maxscale=dataframe.OBG.max(), minscale=0, increment=2)
+
+    ax31 = axis[2].twiny()
+    logplot(axis=ax31, log=dataframe.OBG, depth=dataframe.TVD, color='black', label='OBG[ppg]',
+                position=1.02, scale=scale3, scalelabel=scalelist3, width='1')  
+    ax31.grid(True)
         
-        else:
-            ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
+    fig.tight_layout()
+
+    # Save files
+
+    filename = '%s_OBP.jpg' %wellname
+    obpfolder = 'OBP'
+    obppath = os.path.join(savepath, obpfolder)
+
+    if not os.path.isdir(obppath):
+        os.makedirs(obppath)
+
+    plt.savefig(os.path.join(obppath, filename), dpi=300, format='jpg', bbox_inches="tight")
+    plt.close(fig)
+
+# function for gamma ray normalization
+
+def grnorm_plot(**kwargs):
+    """
+    input:  dataframes = list of well logging data in dataframe,
+            wellids = dictionary of name and color code,
+            savepath = path to save folder
+    """
+
+    dataframes = kwargs.get('dataframes')
+    wellids = kwargs.get('wellids')
+    savepath = kwargs.get('savepath')
+
+    import os
+    import matplotlib.pyplot as plt
+
+    # bins = a number of histogram bar (default = 150)
+
+    bins = 150
+
+    # create figure
+    
+    fig, ax = plt.subplots(nrows = 1, ncols = 2, figsize = (12,6), sharey = True)
+    fig.suptitle('Histogram of Normalized Gamma Ray', fontsize= 15, y = 0.98)
+    
+    # plot histrogram
+    for dataframe, name in zip(dataframes, wellids):
+        ax[0].hist(dataframe.GR, bins=bins, histtype='step', label=name, color=wellids[name])
+        ax[0].set_xlabel('Gamma Ray [API]')
+        ax[0].set_ylabel('Frequency')
+        ax[0].set_title('Before')
+        ax[0].legend(loc='upper left')
+        
+        ax[1].hist(dataframe.GR_NORM, bins=bins, histtype='step', label=name, color=wellids[name])
+        ax[1].set_xlabel('Normalized Gamma Ray [API]')
+        ax[1].set_title('After')
+        ax[1].legend(loc='upper left')
 
     fig.tight_layout()
 
-    plt.show()
+    # save files
+
+    filename = 'LQC_GR_NORM.jpg'
+    LQCfolder = 'LQC'
+    LQCpath = os.path.join(savepath, LQCfolder)
+
+    if not os.path.isdir(LQCpath):
+        os.makedirs(LQCpath)
+
+    plt.savefig(os.path.join(LQCpath, filename), dpi=300, format='jpg', bbox_inches='tight')
+    plt.close(fig)
+
+# function for neutron-density crossplot
+
+def nd_plot(**kwargs):
+    """
+    input:  dataframe = well logging data in dataframe,
+            formtop = formation top data (.csv),
+            forms = formation name and its color code in dictonary,
+            toprange = top depth point,
+            botrange = bottom depth point,
+            wellname = well name
+            savepath = path to save folder
+    """
+
+    dataframe = kwargs.get('dataframe')
+    formtop = kwargs.get('formtop')
+    forms = kwargs.get('forms')
+    toprange = kwargs.get('toprange')
+    botrange = kwargs.get('botrange')
+    wellname = kwargs.get('wellname')
+    savepath = kwargs.get('savepath')
+
+    import os
+    import numpy as np
+    import matplotlib as mpl
+    import matplotlib.lines as mlines
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    import matplotlib.patheffects as pe
+
+    # input parameters
+
+    condition1 = (dataframe.index >= toprange) & (dataframe.index <= botrange)
+    
+    plotdata = dataframe.loc[condition1, ['TVDSS', 'GR_NORM', 'NPHI_MRG', 'RHOB_MRG', 'VCL', 'PHIE', 'LITHO']]
+    topdepth = dataframe.loc[condition1, 'TVDSS'].dropna().min()
+    botdepth = dataframe.loc[condition1, 'TVDSS'].dropna().max()
+
+    # Create figure
+
+    fig = plt.figure(figsize=(16, 8))
+
+    gs = gridspec.GridSpec(ncols=4, nrows=1, width_ratios = [5, 1, 1, 1])
+    axis1 = fig.add_subplot(gs[0])
+    axis2 = fig.add_subplot(gs[1])
+    axis3 = fig.add_subplot(gs[2], sharey=axis2)
+    axis4 = fig.add_subplot(gs[3], sharey=axis2)
+
+    # plot neutron porosity and density
+
+    q1 = plotdata.GR_NORM.quantile(0.01)
+    q99 = plotdata.GR_NORM.quantile(0.99)
+    condition2 = (plotdata.GR_NORM >= q1) & (plotdata.GR_NORM <= q99)
+    
+    NPHI = plotdata.loc[condition2, 'NPHI_MRG']
+    RHOB = plotdata.loc[condition2, 'RHOB_MRG']
+    GR = plotdata.loc[condition2, 'GR_NORM']
+
+    cmap = mpl.cm.jet
+
+    im = axis1.scatter(NPHI, RHOB, c=GR, marker='.', cmap=cmap)
+
+    RHOBsh = RHOB.quantile(0.55)
+    NPHIsh = NPHI.quantile(0.55)
+
+    x_line = [0.45, 0, NPHIsh]
+    y_line = [1.9, 2.65, RHOBsh]
+    minerals = ['Water', 'Quartz', 'Clay']
+
+    line = mlines.Line2D(x_line, y_line, color = 'black')
+    axis1.add_line(line)
+
+    for x, y, mineral in zip(x_line, y_line, minerals):
+        axis1.text(x + 0.02, y + 0.02, mineral, ha='center', va='center', color='black',
+                    path_effects = [pe.withStroke(linewidth=3, foreground="white")], fontsize=10, weight='bold')
+
+    axis1.set_xlabel('NPHI[V/V]')
+    axis1.set_ylabel('RHOB[g/c3]')
+    axis1.set_xlim(-.05, .50)
+    axis1.set_ylim(3, 1.8)
+    axis1.grid(True)
+    
+    cbar = fig.colorbar(im, ax = axis1)
+    cbar.set_label('NORMALIZED GAMMA RAY')
+
+    axis1.set_title('Neutron-density crossplot of Well %s' %wellname, fontsize = 15, y = 1.06)
+
+    # general setting for log plot
+
+    axis2.set_ylabel('TVDSS[m]')
+
+    for ax in [axis2, axis3, axis4]:
+        ax.set_ylim(topdepth, botdepth)
+        ax.invert_yaxis()
+        ax.minorticks_on() #Scale axis
+        ax.get_xaxis().set_visible(False) 
+
+    for ax in [axis3, axis4]:
+        ax.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
+        ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'blue')
+
+    # formations plot
+
+    ax21 = axis2.twiny()
+    ax21.spines['top'].set_position(('axes', 1.02))
+    ax21.spines['top'].set_edgecolor('black')
+    ax21.set_xlim(0, 1)
+    ax21.set_xlabel('FORMATIONS', color = 'black')    
+    ax21.set_xticks([0, 1])
+    ax21.set_xticklabels(['', ''])
+
+    for top, bot, form in zip(formtop.TVDSS_TOP, formtop.TVDSS_BOT, formtop.FORM):
+        if (top >= topdepth) & (top <= botdepth):
+            ax21.axhline(y=top, linewidth=1.5, color=forms[form], alpha=0.5)
+            if (bot <= botdepth):
+                middle = top + (bot - top)/2
+                ax21.axhspan(top, bot, facecolor=forms[form], alpha=0.2)      
+            else:
+                middle = top + (botdepth - top)/2
+                ax21.axhspan(top, botdepth, facecolor=forms[form], alpha=0.2)
+            ax21.text(0.5, middle, form, ha='center', va='center', color=forms[form],
+                        path_effects = [pe.withStroke(linewidth=3, foreground="white")], fontsize=10, weight='bold')
+    
+    ax21.grid(False)
+
+    # effective porosity, rock matrix, volume of clay plots
+
+    ax31 = axis3.twiny()
+    logplot(axis=ax31, log=plotdata.VCL, depth=plotdata.TVDSS, color='SaddleBrown', label='VCL[V/V]',
+                position=1.02, scale=np.arange(0, 1.1, 0.2), scalelabel=['0', '', '', '', '','1'])
+
+    ax32 = axis3.twiny()
+    logplot(axis=ax32, log=plotdata.PHIE, depth=plotdata.TVDSS, color='gray', label='PHIE[V/V]',
+                position=1.10, scale=np.arange(1.0, -0.1, -0.2), scalelabel=['1', '', '', '', '','0'])
+
+    ax33 = axis3.twiny()
+    ax33.set_xlim(0, 1)
+    ax33.fill_betweenx(plotdata.TVDSS, 0, plotdata.VCL, color='SaddleBrown', 
+                            capstyle='butt', linewidth=0.5)
+    ax33.fill_betweenx(plotdata.TVDSS, plotdata.VCL, (1 - plotdata.PHIE), color='yellow', 
+                            capstyle='butt', linewidth=0.5)
+    ax33.fill_betweenx(plotdata.TVDSS, (1 - plotdata.PHIE), 1, color='gray', 
+                            capstyle='butt', linewidth=0.5)
+    ax33.set_xticks([0, 1])
+    ax33.set_xticklabels(['', ''])
+
+    # sand-shale lithology plot
+
+    plotdata['liplot'] = np.nan
+    plotdata.loc[plotdata.LITHO == 'SAND', 'liplot'] = 1
+    plotdata.loc[plotdata.LITHO == 'SHALE', 'liplot'] = 0
+        
+    ax41 = axis4.twiny()
+    ax41.fill_betweenx(plotdata.TVDSS, plotdata.liplot, 1, color='SaddleBrown', 
+                            capstyle='butt', linewidth=0.01, label='SHALE')
+    ax41.fill_betweenx(plotdata.TVDSS, 0, plotdata.liplot, color='yellow', 
+                            capstyle='butt', linewidth=0.01, label='SAND')
+    ax41.spines['top'].set_position(('axes', 1.02))
+    ax41.spines['top'].set_edgecolor('gray')
+    ax41.set_xlim(0, 1)
+    ax41.set_xlabel('LITHOLOGY', color = 'gray')
+    ax41.tick_params(axis = 'x', colors = 'gray')
+    ax41.set_xticks([0, 1])
+    ax41.set_xticklabels(['', ''])
+    ax41.legend(loc = 'upper left')
+
+    plotdata.drop(columns = ['liplot'], inplace = True)
+
+    fig.tight_layout()
+
+    # Save files
+
+    filename = '%s_ND.jpg' %wellname
+    ndfolder = 'MecStrati'
+    ndpath = os.path.join(savepath, ndfolder)
+
+    if not os.path.isdir(ndpath):
+        os.makedirs(ndpath)
+
+    plt.savefig(os.path.join(ndpath, filename), dpi=300, format='jpg', bbox_inches="tight")
+    plt.close(fig)
+
+# Function for all overburden stress plot
+
+def allobp_plot(**kwargs):
+    """
+    input:  dataframes = list of well logging data in dataframe,
+            wellids = dictionary of name and color code,
+            savepath = path to save folder
+    """
+
+    dataframes = kwargs.get('dataframes')
+    wellids = kwargs.get('wellids')
+    savepath = kwargs.get('savepath')
+
+    import os
+    import matplotlib.pyplot as plt
+
+    # Create figure and subplots
+    
+    fig, ax = plt.subplots(nrows = 1, ncols = 1, figsize = (6, 10), sharey = True)
+    fig.suptitle('Overburden Pressure', fontsize = 16, y = 1.0)
+    
+    # General setting for all axis
+
+    maxscale = max([dataframe.OBP.max() for dataframe in dataframes])
+    scale, scalelist = plotscale(maxscale=maxscale, minscale=0, increment=2000)
+
+    # overburden pressure
+    
+    ax.set_ylabel('TVD[m]')
+    ax.set_ylim(0, max([dataframe.TVD.max() for dataframe in dataframes]))
+    ax.invert_yaxis()
+    ax.minorticks_on() #Scale axis
+    ax.get_xaxis().set_visible(False) 
+    ax.grid(which='major', linestyle='-', linewidth='0.5', color='green')
+    ax.grid(which='minor', linestyle=':', linewidth='0.5', color='blue')
+
+    ax.set_xlim(scale[0], scale[-1]) 
+    for dataframe, name in zip(dataframes, wellids):
+        ax.plot(dataframe.OBP, dataframe.TVD, color=wellids[name], linewidth='1', label=name)
+    ax.set_xlabel('OBP[psi]', color='black')
+    ax.tick_params(axis='x', colors='black')
+
+    ax.set_xticks(scale)
+    ax.set_xticklabels(scalelist)
+    ax.xaxis.set_label_position('top')
+    ax.xaxis.tick_top()
+    ax.grid(True)
+    ax.legend(loc = 'upper right')
+        
+    fig.tight_layout()
+
+    # Save files
+
+    filesave = 'All_OBP.jpg'
+    obpfolder = 'OBP'
+    obppath = os.path.join(savepath, obpfolder)
+
+    if not os.path.isdir(obppath):
+        os.makedirs(obppath)
+
+    plt.savefig(os.path.join(obppath, filesave), dpi=300, format='jpg', bbox_inches="tight")
+    plt.close(fig)
 
 
 
+# # Function for initial plot for first inspection
 
+# def inspection(dataframe, las):
+#     """
+#     inputs: dataframe = well logging in dataframe
+#             las = well logging in las file
+#     """
+
+#     import matplotlib.pyplot as plt
+#     import numpy as np
+
+#     # create figure
+
+#     fig, axis = plt.subplots(nrows = 1, ncols = len(dataframe.columns), figsize = (30,20), sharey = True)
+    
+#     units = [curve.unit for curve in las.curves]
+#     index_unit = units.pop(0)
+
+#     # plot setting for all axis
+
+#     bottom_depth = dataframe.index.max()
+#     top_depth = dataframe.index.min()
+
+#     axis[0].set_ylabel('MD[%s]' %index_unit, fontsize = 15)
+
+#     for ax, col, unit in zip(axis, dataframe.columns, units):
+#         ax.set_ylim(top_depth, bottom_depth)
+#         ax.invert_yaxis()
+#         ax.minorticks_on() #Scale axis
+#         ax.grid(which = 'major', linestyle = '-', linewidth = '0.5', color = 'green')
+#         ax.grid(which = 'minor', linestyle = ':', linewidth = '0.5', color = 'black')
+#         ax.set_xlabel(col + '\n[%s]' %unit, fontsize = 15)
+
+#         if (col == 'RT') or (col == 'MSFL'):
+#             ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
+#             ax.set_xscale('log')
+
+#         elif col == 'BHF':
+
+#             dataframe['bhf'] = np.nan
+#             dataframe.loc[dataframe.BHF == 'BAD', 'bhf'] = 1
+#             ax.fill_betweenx(dataframe.index, 0, dataframe.bhf, color = 'red', capstyle = 'butt', linewidth = 1, label = 'BAD')
+#             dataframe.drop(columns = ['bhf'], inplace = True)
+
+#         elif col in ['TVD', 'TVDSS', 'AZI', 'ANG', 'CAL', 'BS']:
+#             ax.plot(dataframe[col], dataframe.index, linewidth = '1.0')
+        
+#         else:
+#             ax.plot(dataframe[col], dataframe.index, linewidth = '0.5')
+
+#     fig.tight_layout()
+
+#     plt.show()
 
 
 if __name__ == "__main__":

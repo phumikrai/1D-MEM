@@ -27,6 +27,7 @@ class borehole:
 
         self.las = kwargs.get('las')
         self.dev = kwargs.get('dev')
+        self.config = kwargs.get('config')
         self.top = kwargs.get('top')
         self.pres = kwargs.get('pres')
         self.core = kwargs.get('core')
@@ -34,6 +35,15 @@ class borehole:
         self.mud = kwargs.get('mud')
         self.color = kwargs.get('color')
         
+        # well configuration
+
+        self.type = None # field type either onshore or offshore
+        self.kb = None # kelly bushing
+        self.gl = None # ground level
+        self.wl = None # water level
+        self.ml = None # mud line density
+        self.ag = None # air gap
+
         # extracted data
 
         self.name = self.las.well['WELL'].value # well name
@@ -47,25 +57,16 @@ class borehole:
         del self.las.curves['DEPTH']
         self.other = {} # store for any utility
         
-        # user determination
-
-        self.type = None # field type either onshore or offshore
-        self.kb = None # kelly bushing
-        self.gl = None # ground level
-        self.wl = None # water level
-        self.ml = None # mud line density
-        self.ag = None # air gap
-
         # check completion
         
-        datalist = [(self.las, self.df), self.dev, self.top, self.pres,
-                    self.core, self.drill, self.mud]
+        datalist = [(self.las, self.df), self.dev, self.config, self.top, 
+                        self.pres, self.core, self.drill, self.mud]
 
-        aliaslist = [curve_alias, dev_alias, top_alias, pres_alias,
-                    core_alias, drill_alias, mud_alias]
+        aliaslist = [curve_alias, dev_alias, config_alias, top_alias, 
+                        pres_alias, core_alias, drill_alias, mud_alias]
 
-        datatype = ['Well logging', 'Deviation', 'Formation top', 'Pressure test',
-                    'Core test', 'Drilling test', 'Mud weight log']
+        datatype = ['Well logging', 'Deviation', 'Formation top', 'Well Configuration',
+                        'Pressure test', 'Core test', 'Drilling test', 'Mud weight log']
 
         checked = []
 

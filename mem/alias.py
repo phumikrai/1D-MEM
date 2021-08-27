@@ -28,6 +28,16 @@ dev_alias = {
 'ANG':['ANGLE', 'ANG']
 }
 
+# well configuration
+
+config_alias = {
+'TYPE':['TYPE', 'FIELD'],
+'KB':['KB',],
+'GL':['GROUND', 'GL'],
+'WL':['WATER', 'WL'],
+'ML':['Mudline', 'ML']
+}
+
 # formation top data
 
 top_alias = {

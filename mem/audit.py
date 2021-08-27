@@ -6,10 +6,6 @@ Data audit
 
 # function for decision confirmation
 
-from os import name
-from pandas.core.frame import DataFrame
-
-
 def confirm():
     """
     output: user confirmation; Yes = True,  No = False
@@ -80,6 +76,7 @@ def grouping(**kwargs):
     """
     input:  las = list of well logging file path,
             dev = list of deviation file path,
+            config = list of configuration file path,
             top = list of formation top file path,
             pres = list of pressure file path,
             core = list of core file path,
@@ -91,6 +88,7 @@ def grouping(**kwargs):
 
     las = kwargs.get('las')
     dev = kwargs.get('dev')
+    config = kwargs.get('config')
     top = kwargs.get('top')
     pres = kwargs.get('pres')
     core = kwargs.get('core')
@@ -104,15 +102,17 @@ def grouping(**kwargs):
     for name in wellname:
         A = (name in filename(las))
         B = (name in filename(dev))
-        C = (name in filename(top))
-        D = (name in filename(pres))
-        E = (name in filename(core))
-        F = (name in filename(drill))
-        G = (name in filename(mud))
+        C = (name in filename(config))
+        D = (name in filename(top))
+        E = (name in filename(pres))
+        F = (name in filename(core))
+        G = (name in filename(drill))
+        H = (name in filename(mud))
 
-        if A and B and C and D and E and F and G:
+        if A and B and C and D and E and F and G and H:
             groups[name] = {'las':las[filename(las).index(name)], 
                             'dev':dev[filename(dev).index(name)],
+                            'config':config[filename(config).index(name)],
                             'top':top[filename(top).index(name)],
                             'pres':pres[filename(pres).index(name)],
                             'core':core[filename(core).index(name)],

@@ -28,6 +28,7 @@ from mem.plots import *         # all model plots
 
 files = {'las':['well logging file', ' (.las)'], 
          'dev':['deviation file', ' (.csv)'],
+         'config':['configuration file', ' (.csv)'],
          'top':['formation top file', ' (.csv)'],
          'pres':['pressure test file', ' (.csv)'],
          'core':['core test file', ' (.csv)'],
@@ -62,7 +63,7 @@ files = {'las':['well logging file', ' (.las)'],
 
 """
 
-Temporary code 1
+Temporary code
 
 """
 
@@ -71,6 +72,7 @@ def temppath(directory):
 
 dirpaths = {'las': temppath('Las files'), 
             'dev': temppath('Deviations'),
+            'config': temppath('Configs'),
             'top': temppath('Formation tops'),
             'pres': temppath('Pressures'),
             'core': temppath('Cores'),
@@ -82,7 +84,7 @@ for name in dirpaths:
 
 """
 
-Temporary code 1
+Temporary code
 
 """
 
@@ -98,9 +100,9 @@ for name in dirpaths:
 
 # group the files by well name or prefix
 
-groupfiles = grouping(las=filepaths['las'], dev=filepaths['dev'], top=filepaths['top'], 
-                        pres=filepaths['pres'],core=filepaths['core'], drill=filepaths['drill'], 
-                        mud=filepaths['mud'])
+groupfiles = grouping(las=filepaths['las'], dev=filepaths['dev'], config=filepaths['config'],
+                        top=filepaths['top'], pres=filepaths['pres'],core=filepaths['core'], 
+                        drill=filepaths['drill'], mud=filepaths['mud'])
 
 # import all files as borehole object
 
@@ -110,51 +112,32 @@ wells = []
 
 for name, color in zip(groupfiles, default_colors(len(groupfiles))):
     well = borehole(las=lasio.read(groupfiles[name]['las']), dev=pd.read_csv(groupfiles[name]['dev']),
-                    top=pd.read_csv(groupfiles[name]['top']), pres=pd.read_csv(groupfiles[name]['pres']),
-                    core=pd.read_csv(groupfiles[name]['core']), drill=pd.read_csv(groupfiles[name]['drill']),
-                    mud=pd.read_csv(groupfiles[name]['mud']), color=color)
+                    config=pd.read_csv(groupfiles[name]['config']), top=pd.read_csv(groupfiles[name]['top']),
+                    pres=pd.read_csv(groupfiles[name]['pres']), core=pd.read_csv(groupfiles[name]['core']),
+                    drill=pd.read_csv(groupfiles[name]['drill']), mud=pd.read_csv(groupfiles[name]['mud']),
+                    color=color)
     if well.completion == True:
         wells.append(well)
         print('The data of well %s are imported' %well.name)
     else:
         print('The data of well %s are not imported' %well.name)
 
-# define field parameters
+# setup well configuration
 
-# while True:
+for well in wells:
+    well.type = well.config.iloc[0].TYPE.lower()
+    well.kb = well.config.iloc[0].KB
+    well.ml = well.config.iloc[0].ML
+    print('Well %s is in %s field' %(well.name, well.type))
 
-#     field_type = input('What is this oil field type [Onshore/Offshore]: ').strip()
-
-#     if field_type.lower() not in ['onshore', 'offshore']:
-#         print('Please type only either \"Onshore\" or \"Offshore\"')
-#         continue
-    
-#     for well in wells:
-#         print('Please type basic information for well %s' %well.name)
-        
-#         well.type = field_type.lower()
-#         well.kb = float(input('Kelly Bushing depth (KB level to sea level) [m]: ').strip())
-        
-#         if field_type.lower() == 'onshore':
-#             well.gl = float(input('Ground elevetion (ground level to sea level) [m]: ').strip())
-#             well.ag = well.kb - well.gl
-#         else:
-#             well.wl = float(input('Water depth (sea level to seafloor level) [m]: ').strip())
-#             well.ag = well.kb
-        
-#         well.ml = float(input('Mudline density (density at ground level) [g/c3]: ').strip())
-
-#     print('Please confirm these inputs; Field type = %s' %(field_type))
-#     for well in wells:
-#         if field_type.lower() == 'onshore':
-#             print('Well %s; Ground level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.name, well.gl, well.ml, well.ag))
-#         else:
-#             print('Well %s; Water level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.name, well.wl, well.ml, well.ag))
-
-#     if confirm():
-#         break
-#     else:
-#         continue
+    if well.type == 'onshore':
+        well.gl = well.config.iloc[0].GL
+        well.ag = well.kb - well.gl
+        print('Ground level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.gl, well.ml, well.ag))
+    else:
+        well.wl = well.config.iloc[0].WL
+        well.ag = well.kb
+        print('Water level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.wl, well.ml, well.ag))
 
 """
 
@@ -162,13 +145,13 @@ Temporary code 2
 
 """
 
-for well in wells:
-    well.type = 'onshore'
-    well.kb = 62.91
-    well.gl = 53.62
-    well.ml = 1.32
-    well.ag = well.kb - well.gl
-    print('Well %s; Ground level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.name, well.gl, well.ml, well.ag))
+# for well in wells:
+#     well.type = 'onshore'
+#     well.kb = 62.91
+#     well.gl = 53.62
+#     well.ml = 1.32
+#     well.ag = well.kb - well.gl
+#     print('Well %s; Ground level = %.2f, Mudline density = %.2f, Air gap = %.2f' %(well.name, well.gl, well.ml, well.ag))
 
 """
 
@@ -413,7 +396,7 @@ for well in wells:
     well.df, well.las = merge_mud(dataframe=well.df, las=well.las, mud=well.mud)
     well.df, well.las = mudwindow_cal(dataframe=well.df, las=well.las)
     well.df, well.las = wbo_cal(dataframe=well.df, las=well.las)
-    print('Mud window is created for well %s' %well.name)
+    print('Mud window components are calculated for well %s' %well.name)
 
 """
 
@@ -430,10 +413,42 @@ if not os.path.isdir(savepath):
     os.makedirs(savepath)
 
 for well in wells:
-    filename = '%s_MEM.jpg' %well.name
+    print('Model is being created for well %s' %well.name)
+
+    # mem plot
+
     mem_plot(dataframe=well.df, formtop=well.top, pres=well.pres, core=well.core,
                 forms=allforms, toprange=well.range[0], botrange=well.range[1],
-                wellname=well.name, savepath=savepath, filename=filename)
+                wellname=well.name, savepath=savepath)
+
+    # neutron-density crossplot
+
+    nd_plot(dataframe=well.df, formtop=well.top, forms=allforms, toprange=well.range[0], 
+                botrange=well.range[1], wellname=well.name, savepath=savepath)
+
+    # overburden pressure plot
+
+    obp_plot(dataframe=well.df, wellname=well.name, savepath=savepath)
+
+# input for group plot
+
+dataframes = [well.df for well in wells]
+formtops = [well.top for well in wells]
+wellids = {well.name:well.color for well in wells}
+
+# histogram of gamma ray normalization
+
+grnorm_plot(dataframes=dataframes, wellids=wellids, savepath=savepath)
+
+# boxes plots for QC
+
+for form in allforms:
+    boxes_plot(dataframes=dataframes, formtops=formtops, wellids=wellids,
+                    formation=form, savepath=savepath)
+
+# all overburden stress plot
+
+allobp_plot(dataframes=dataframes, wellids=wellids, savepath=savepath)
 
 """
 

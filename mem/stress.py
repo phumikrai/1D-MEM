@@ -31,7 +31,7 @@ def strain_cal(**kwargs):
     # iterative parameters
 
     maxstrain, minstrain = 0, 0 # maximum and minimum tectonic strains
-    increrate = 0.00001 # increment rate
+    increrate = 0.0001 # increment rate
 
     # calculate tectonic strains using iteration process
 
@@ -53,8 +53,6 @@ def strain_cal(**kwargs):
         while stress <= row[1].PRESSURE if row[1].TYPE == 'FIT' else stress < row[1].PRESSURE:
             maxstrain += increrate
             stress = stress_pred(dataframe=selected_data, maxstrain=maxstrain, minstrain=minstrain, depth=row[1].MD)
-        
-        print('')
 
     maxstrain, minstrain = [0 if strain < 0 else strain for strain in [maxstrain, minstrain]]
     

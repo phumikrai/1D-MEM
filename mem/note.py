@@ -20,6 +20,7 @@ def announce():
     3.) All data for modeling including;
         - well logging (.las)
         - Deviation (.csv)
+        - Well configuration (.csv)
         - Formation top (.csv)
         - Pressure test (.csv)
         - Core test (.csv)
@@ -28,29 +29,33 @@ def announce():
         must be separated as sub-directory of the data directory. 
 
     For example;
-        - Working directory is "Drive:/Working/".
-        - All data for modeling directory is "Drive:/Working/Data/".
-        - Well logging file directory is "Drive:/Working/Data/Well logging/" as Sub-directory of the data directory.
-        - Deviation file directory is "Drive:/Working/Data/Deviation/" as Sub-directory of the data directory.
-        - Formation top file directory is "Drive:/Working/Data/Formation top/" as Sub-directory of the data directory.
-        - Pressure test file directory is "Drive:/Working/Data/Pressure test/" as Sub-directory of the data directory.
-        - Core test file directory is "Drive:/Working/Data/Core test/" as Sub-directory of the data directory.
-        - Drilling test file directory is "Drive:/Working/Data/Drilling test/" as Sub-directory of the data directory.
-        - Mud-weight log file directory is "Drive:/Working/Data/Mud weight/" as Sub-directory of the data directory.
+        - Working directory is "/Working/".
+        - All data for modeling directory is "/Working/Data/".
+        - Well logging file directory is "/Working/Data/Well logging/" as Sub-directory of the data directory.
+        - Deviation file directory is "/Working/Data/Deviation/" as Sub-directory of the data directory.
+        - Configuration file directory is "/Working/Data/Config/" as Sub-directory of the data directory.
+        - Formation top file directory is "/Working/Data/Formation top/" as Sub-directory of the data directory.
+        - Pressure test file directory is "/Working/Data/Pressure test/" as Sub-directory of the data directory.
+        - Core test file directory is "/Working/Data/Core test/" as Sub-directory of the data directory.
+        - Drilling test file directory is "/Working/Data/Drilling test/" as Sub-directory of the data directory.
+        - Mud-weight log file directory is "/Working/Data/Mud weight/" as Sub-directory of the data directory.
 
-    4.) Well name should be set as prefix for each file. Its name will cause file ordering and file pairing for each file of that well.
+    4.) Well name should be set as prefix for each file. Its name will cause file ordering and file pairing for each file 
+        of that well.
         
     Assuming that; 
-    well name is "Well-01" (Noted: No underscore ('_') be contained in well name) So this name should be set as prefix followed by underscore ('_') for each modeling input file like this "Well-01_(...Specific name for file type indication...)". 
+    well name is "Well-01" (Noted: No underscore ('_') is contained in well name) So this name should be set as prefix followed 
+    by underscore ('_') for each modeling input file like this "Well-01_(...Specific name for file type indication...)". 
 
     For example;
-        - well logging      is   "Well-01_las"    
-        - Deviation         is   "Well-01_dev"
-        - Formation top     is   "Well-01_top"
-        - Pressure test     is   "Well-01_pp"
-        - Core test         is   "Well-01_core"
-        - Drilling test     is   "Well-01_test"
-        - Mud-weight log    is   "Well-01_mw"
+        - well logging      is  "Well-01_las"    
+        - Deviation         is  "Well-01_dev"
+        - Configuration     is  "Well-01_config"   
+        - Formation top     is  "Well-01_top"
+        - Pressure test     is  "Well-01_pp"
+        - Core test         is  "Well-01_core"
+        - Drilling test     is  "Well-01_test"
+        - Mud-weight log    is  "Well-01_mw"
 
     5.: Required data and file format;
 
@@ -69,7 +74,14 @@ def announce():
     - Deviation files including; 
         Measured depth                  (MD)            in meter unit [m]           
         Azimuth                         (AZIMUTH)       in degree unit [degree]     
-        Inclination or angle            (ANGLE)         in degree unit [degree]     
+        Inclination or angle            (ANGLE)         in degree unit [degree]
+
+    - Configuration files including;
+        Field type                      (TYPE)          either onshore or offshore
+        Kelly Bushing depth             (KB)            in meter unit [m]
+        Ground level or elevetion       (GL)            in meter unit [m] *Value in column can be blank for offshore
+        Water depth or sea level        (WL)            in meter unit [m] *Value in column can be black for onshore
+        Mudline density                 (ML)            in grams per cubic centimetre unit [g/c3]
 
     - Formation top files including;
         Formation name                  (FORMATIONS)                                                     
